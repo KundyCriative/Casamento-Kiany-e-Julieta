@@ -6,6 +6,14 @@
 <meta name="theme-color" content="#183b35">
 <title>Portaria | Kiany &amp; Julieta</title>
 
+<!-- CONFIGURAÇÕES PWA -->
+<link rel="manifest" href="manifest.json">
+<link rel="icon" href="icon.svg" type="image/svg+xml">
+<link rel="apple-touch-icon" href="icon.svg">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Portaria K&J">
+
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@500;600;700&family=DM+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
@@ -37,6 +45,15 @@ button { cursor: pointer; }
 .local-pill.offline { border-color: #eedcc0; background: #fff7eb; color: var(--amber); }
 
 .container { max-width: 500px; margin: 0 auto; padding: 16px; }
+
+/* BANNER DE INSTALAÇÃO PWA */
+.pwa-banner {
+  background: #fbf9f4; border: 1px solid var(--gold); border-radius: 12px;
+  padding: 12px 14px; margin-bottom: 14px; display: none; align-items: center;
+  justify-content: space-between; gap: 10px; box-shadow: 0 4px 12px rgba(197,165,107,0.15);
+}
+.pwa-banner strong { font-size: 12px; color: var(--green); display: block; }
+.pwa-banner span { font-size: 11px; color: var(--muted); }
 
 .scanner-card {
   background: #142e29; border-radius: 14px; color: white; padding: 16px;
@@ -82,7 +99,6 @@ button { cursor: pointer; }
   font-weight: 700; padding: 4px 8px; border-radius: 99px;
 }
 .status-ok { background: #eaf5eb; color: #28703c; }
-.status-full { background: #fdf0ed; color: #a13c36; }
 
 .notice {
   position: fixed; bottom: 20px; left: 20px; right: 20px; max-width: 460px; margin: 0 auto;
@@ -105,6 +121,15 @@ button { cursor: pointer; }
 
 <main class="container">
 
+  <!-- BANNER DE INSTALAÇÃO DO PWA -->
+  <div id="pwaInstallBanner" class="pwa-banner">
+    <div>
+      <strong>📲 Instalar no Telemóvel</strong>
+      <span>Aceda direto pelo ecrã inicial sem navegador</span>
+    </div>
+    <button id="btnPwaInstall" class="btn btn-gold" style="font-size:11px; padding:6px 12px;">Instalar</button>
+  </div>
+
   <!-- ÁREA DA CÂMARA -->
   <section class="scanner-card">
     <div style="display:flex; justify-content:space-between; font-size:11px; margin-bottom:10px; color:#c7d5ce;">
@@ -125,7 +150,6 @@ button { cursor: pointer; }
       <button class="btn btn-secondary" onclick="toggleTorch()">🔦 Lanterna</button>
     </div>
 
-    <!-- BOTÃO SALVA-VIDAS: Leitura por Arquivo de Foto/Galeria -->
     <div style="margin-top:10px; text-align:center;">
       <label class="btn btn-secondary" style="width:100%; font-size:11px; cursor:pointer;">
         📁 Ler Código de Foto / Galeria
@@ -153,6 +177,44 @@ button { cursor: pointer; }
 <script>
 (function() {
   'use strict';
+
+  // --- REGISTO DO SERVICE WORKER (PWA) ---
+  if ('serviceWorker' in navigator) {
+    window.addEventListener('load', () => {
+      navigator.serviceWorker.register('./sw.js').then((reg) => {
+        console.log('PWA Service Worker ativo com sucesso:', reg.scope);
+      }).catch((err) => {
+        console.warn('Falha no Service Worker:', err);
+      });
+    });
+  }
+
+  // --- CONTROLO DO BANNER DE INSTALAÇÃO ---
+  let deferredPrompt = null;
+  const pwaBanner = document.getElementById('pwaInstallBanner');
+  const btnPwaInstall = document.getElementById('btnPwaInstall');
+
+  window.addEventListener('beforeinstallprompt', (e) => {
+    e.preventDefault();
+    deferredPrompt = e;
+    if (pwaBanner) pwaBanner.style.display = 'flex';
+  });
+
+  if (btnPwaInstall) {
+    btnPwaInstall.addEventListener('click', async () => {
+      if (!deferredPrompt) {
+        // Instrução para iOS Safari
+        alert("Para instalar no iPhone:\n1. Toque no botão Partilhar (quadrado com seta).\n2. Selecione 'Ecrã Principal'.");
+        return;
+      }
+      deferredPrompt.prompt();
+      const { outcome } = await deferredPrompt.userChoice;
+      if (outcome === 'accepted') {
+        pwaBanner.style.display = 'none';
+      }
+      deferredPrompt = null;
+    });
+  }
 
   // CREDENCIAIS SUPABASE
   const SUPABASE_URL = "https://twrpzyopfcftxnthrqzl.supabase.co";
@@ -202,7 +264,6 @@ button { cursor: pointer; }
     el._t = setTimeout(() => el.classList.remove('show'), 3500);
   };
 
-  // 1. CARREGAMENTO DA BASE DE DADOS COM CACHE LOCAL
   async function loadGuests() {
     const pill = document.getElementById('syncPill');
     if (sb && navigator.onLine) {
@@ -218,20 +279,17 @@ button { cursor: pointer; }
       } catch(e) {}
     }
 
-    // Modo Offline
     const local = localStorage.getItem('PORTARIA_CACHE_GUESTS');
     guests = local ? JSON.parse(local) : [];
     pill.className = 'local-pill offline';
     pill.textContent = '● Modo Offline';
   }
 
-  // 2. INICIALIZAÇÃO ROBUSTA DA CÂMARA (SEM TRAVAMENTO)
   window.toggleCamera = async function() {
     const btn = document.getElementById('btnToggleCam');
     const badge = document.getElementById('camStatusBadge');
     const placeholder = document.getElementById('camPlaceholder');
 
-    // Se estiver a rodar dentro do navegador do WhatsApp, avisa
     if (/FBAN|FBAV|WhatsApp/i.test(navigator.userAgent)) {
       alert("ATENÇÃO: O WhatsApp bloqueia a câmara por segurança.\n\nToque nos 3 pontinhos e escolha 'Abrir no Chrome' ou 'Abrir no Safari'.");
       return;
@@ -255,7 +313,6 @@ button { cursor: pointer; }
 
     html5Scanner = new Html5Qrcode("reader");
 
-    // Configuração com prioridade para a lente traseira principal
     const cameraConfig = { facingMode: "environment" };
     const scanConfig = { fps: 12, qrbox: { width: 230, height: 230 } };
 
@@ -300,7 +357,6 @@ button { cursor: pointer; }
     }
   };
 
-  // 3. LEITURA VIA FICHEIRO DE FOTO / CAPTURA NATIVA (SALVA-VIDAS)
   window.scanImageFile = async function(input) {
     if (!input.files || input.files.length === 0) return;
     const file = input.files[0];
@@ -316,7 +372,6 @@ button { cursor: pointer; }
     }
   };
 
-  // 4. INSPEÇÃO DE CONVIDADO (MOSTRA MESA E PEDE CONFIRMAÇÃO)
   function inspectGuest(tokenQuery) {
     lastScanned = tokenQuery;
     const box = document.getElementById('scanResultBox');
@@ -376,7 +431,6 @@ button { cursor: pointer; }
     `;
   }
 
-  // 5. CONFIRMAÇÃO EXPLÍCITA DE ADMISSÃO
   window.confirmCheckin = async function(token, count) {
     const box = document.getElementById('scanResultBox');
     const g = guests.find(x => x.token === token);
@@ -384,7 +438,6 @@ button { cursor: pointer; }
 
     if (navigator.vibrate) navigator.vibrate([100, 50, 100]);
 
-    // Registo Atómico na Nuvem
     if (sb && navigator.onLine) {
       try {
         const { data: res, error } = await sb.rpc('process_checkin', {
@@ -417,7 +470,6 @@ button { cursor: pointer; }
       } catch(e) {}
     }
 
-    // Registo Local Offline
     g.used += count;
     localStorage.setItem('PORTARIA_CACHE_GUESTS', JSON.stringify(guests));
     playSound('ok');
@@ -433,7 +485,6 @@ button { cursor: pointer; }
     showToast(`✓ Registado localmente (+${count})`);
   };
 
-  // 6. BUSCA MANUAL DE EMERGÊNCIA
   window.searchGuests = function(q) {
     const target = document.getElementById('manualResults');
     const clean = q.trim().toLowerCase();
