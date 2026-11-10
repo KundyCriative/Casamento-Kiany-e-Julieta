@@ -1,0 +1,472 @@
+<!DOCTYPE html>
+<html lang="pt-AO">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#183b35">
+<title>Portaria | Kiany &amp; Julieta</title>
+
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@500;600;700&family=DM+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
+
+<style>
+:root {
+  --ink: #1c302c; --muted: #697873; --green: #183b35; --green2: #24544a;
+  --gold: #c5a56b; --gold-dark: #8e723e; --cream: #f7f5f0; --paper: #fffefa;
+  --line: #e6e4dc; --red: #b53b3b; --amber: #a66b11;
+}
+* { box-sizing: border-box; }
+body { margin: 0; background: var(--cream); font-family: 'DM Sans', sans-serif; color: var(--ink); font-size: 14px; line-height: 1.5; }
+button, input { font: inherit; }
+button { cursor: pointer; }
+
+.header {
+  background: var(--green); color: #fff; padding: 16px 20px;
+  display: flex; justify-content: space-between; align-items: center;
+  position: sticky; top: 0; z-index: 30; box-shadow: 0 4px 14px rgba(0,0,0,0.15);
+}
+.brand-title { font-family: 'Cormorant Garamond', serif; font-size: 20px; font-weight: 600; }
+.local-pill {
+  border: 1px solid #d9e7df; background: #eef5f0; color: #286345;
+  border-radius: 999px; padding: 4px 10px; font-size: 10px; font-weight: 700;
+}
+.local-pill.offline { border-color: #eedcc0; background: #fff7eb; color: var(--amber); }
+
+.container { max-width: 500px; margin: 0 auto; padding: 16px; }
+
+.scanner-card {
+  background: #142e29; border-radius: 14px; color: white; padding: 16px;
+  box-shadow: 0 10px 25px rgba(20,46,41,0.2);
+}
+.scanner-viewport {
+  width: 100%; min-height: 250px; background: #000; border-radius: 10px;
+  overflow: hidden; position: relative; display: flex; align-items: center; justify-content: center;
+}
+#reader { width: 100% !important; border: 0 !important; }
+#reader video { border-radius: 10px; object-fit: cover; }
+
+.btn {
+  border: 1px solid transparent; border-radius: 8px; padding: 10px 14px;
+  font-weight: 600; font-size: 13px; display: inline-flex; align-items: center;
+  justify-content: center; gap: 7px; text-decoration: none; transition: all .15s;
+}
+.btn-primary { background: var(--green); color: white; }
+.btn-gold { background: #f3e9d2; color: #5c451a; border-color: #dfceaa; }
+.btn-danger { background: #fff0ef; color: var(--red); border-color: #f3d4d1; }
+.btn-secondary { background: white; border-color: var(--line); color: var(--ink); }
+
+.scan-result {
+  margin-top: 16px; padding: 18px; border-radius: 12px; background: #fff;
+  border: 1px solid var(--line); box-shadow: 0 8px 20px rgba(0,0,0,0.06);
+}
+.scan-result.success { border-color: #cde6d1; background: #f0f8f0; }
+.scan-result.error { border-color: #f0cfcb; background: #fff3f2; }
+.scan-result.warning { border-color: #eddcba; background: #fff9ed; }
+
+.search-box {
+  background: var(--paper); border: 1px solid var(--line); border-radius: 12px;
+  padding: 16px; margin-top: 16px; box-shadow: 0 3px 10px rgba(0,0,0,0.03);
+}
+.field-input {
+  width: 100%; padding: 12px 14px; border: 1px solid var(--line);
+  border-radius: 8px; font-size: 15px; outline: none; background: #fff;
+}
+.field-input:focus { border-color: var(--gold-dark); box-shadow: 0 0 0 3px rgba(197,165,107,.2); }
+
+.status-badge {
+  display: inline-flex; align-items: center; gap: 5px; font-size: 10px;
+  font-weight: 700; padding: 4px 8px; border-radius: 99px;
+}
+.status-ok { background: #eaf5eb; color: #28703c; }
+.status-full { background: #fdf0ed; color: #a13c36; }
+
+.notice {
+  position: fixed; bottom: 20px; left: 20px; right: 20px; max-width: 460px; margin: 0 auto;
+  z-index: 100; padding: 12px 16px; border-radius: 8px; background: #183b35; color: white;
+  font-size: 13px; text-align: center; display: none; box-shadow: 0 10px 25px rgba(0,0,0,0.25);
+}
+.notice.show { display: block; animation: appear .2s ease-out; }
+@keyframes appear { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
+</style>
+</head>
+<body>
+
+<header class="header">
+  <div>
+    <div style="font-size:10px; text-transform:uppercase; letter-spacing:1px; color:var(--gold);">Portaria Oficial</div>
+    <div class="brand-title">Kiany &amp; Julieta</div>
+  </div>
+  <span class="local-pill" id="syncPill">● A Conectar...</span>
+</header>
+
+<main class="container">
+
+  <!-- ÁREA DA CÂMARA -->
+  <section class="scanner-card">
+    <div style="display:flex; justify-content:space-between; font-size:11px; margin-bottom:10px; color:#c7d5ce;">
+      <span>Leitor Traseiro de QR</span>
+      <span id="camStatusBadge">Pronto</span>
+    </div>
+
+    <div class="scanner-viewport">
+      <div id="reader"></div>
+      <div id="camPlaceholder" style="text-align:center; padding:20px; color:#8ea399;">
+        <div style="font-size:32px; margin-bottom:8px;">📷</div>
+        <p style="margin:0; font-size:13px;">Toque no botão abaixo para iniciar a câmara</p>
+      </div>
+    </div>
+
+    <div style="display:grid; grid-template-columns:1fr 1fr; gap:8px; margin-top:12px;">
+      <button class="btn btn-gold" id="btnToggleCam" onclick="toggleCamera()">▶ Ligar Câmara</button>
+      <button class="btn btn-secondary" onclick="toggleTorch()">🔦 Lanterna</button>
+    </div>
+
+    <!-- BOTÃO SALVA-VIDAS: Leitura por Arquivo de Foto/Galeria -->
+    <div style="margin-top:10px; text-align:center;">
+      <label class="btn btn-secondary" style="width:100%; font-size:11px; cursor:pointer;">
+        📁 Ler Código de Foto / Galeria
+        <input type="file" accept="image/*" style="display:none;" onchange="scanImageFile(this)">
+      </label>
+    </div>
+  </section>
+
+  <!-- PAINEL DE ADMISSÃO (SURGE APÓS A LEITURA) -->
+  <div id="scanResultBox" class="scan-result" style="display:none;"></div>
+
+  <!-- PESQUISA NOMINAL DE EMERGÊNCIA -->
+  <section class="search-box">
+    <h3 style="margin:0 0 4px; font-size:15px; font-family:'Cormorant Garamond',serif; color:var(--green);">Pesquisa de Emergência</h3>
+    <p style="margin:0 0 10px; font-size:11px; color:var(--muted);">Use se o convidado estiver sem bateria ou se a câmara falhar.</p>
+    
+    <input type="search" id="manualInput" class="field-input" placeholder="Escreva o nome ou telefone..." oninput="searchGuests(this.value)">
+    <div id="manualResults" style="margin-top:10px;"></div>
+  </section>
+
+</main>
+
+<div class="notice" id="toastNotice">Notificação</div>
+
+<script>
+(function() {
+  'use strict';
+
+  // CREDENCIAIS SUPABASE
+  const SUPABASE_URL = "https://twrpzyopfcftxnthrqzl.supabase.co";
+  const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InR3cnB6eW9wZmNmdHhudGhycXpsIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTMwMDg2NTIsImV4cCI6MjEwODU4NDY1Mn0.NPCIoiATAQR3Wtd0KV_46OxeJhWO8aX8V2YdtnAYtU8";
+
+  let sb = null;
+  try {
+    if (window.supabase && SUPABASE_ANON_KEY.length > 20) {
+      sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+    }
+  } catch(e) {}
+
+  let guests = [];
+  let html5Scanner = null;
+  let camActive = false;
+  let isTorchOn = false;
+  let audioCtx = null;
+  let lastScanned = null;
+
+  function playSound(type) {
+    try {
+      if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+      if (audioCtx.state === 'suspended') audioCtx.resume();
+      const osc = audioCtx.createOscillator();
+      const gain = audioCtx.createGain();
+      osc.connect(gain); gain.connect(audioCtx.destination);
+      if (type === 'ok') {
+        osc.frequency.setValueAtTime(587.33, audioCtx.currentTime);
+        osc.frequency.setValueAtTime(880, audioCtx.currentTime + 0.1);
+        gain.gain.setValueAtTime(0.25, audioCtx.currentTime);
+        gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.28);
+        osc.start(); osc.stop(audioCtx.currentTime + 0.28);
+      } else {
+        osc.frequency.setValueAtTime(220, audioCtx.currentTime);
+        gain.gain.setValueAtTime(0.3, audioCtx.currentTime);
+        gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.35);
+        osc.start(); osc.stop(audioCtx.currentTime + 0.35);
+      }
+    } catch(e) {}
+  }
+
+  window.showToast = function(msg) {
+    const el = document.getElementById('toastNotice');
+    el.textContent = msg;
+    el.classList.add('show');
+    clearTimeout(el._t);
+    el._t = setTimeout(() => el.classList.remove('show'), 3500);
+  };
+
+  // 1. CARREGAMENTO DA BASE DE DADOS COM CACHE LOCAL
+  async function loadGuests() {
+    const pill = document.getElementById('syncPill');
+    if (sb && navigator.onLine) {
+      try {
+        const { data, error } = await sb.from('guests').select('*').order('created_at', { ascending: false });
+        if (!error && Array.isArray(data)) {
+          guests = data;
+          localStorage.setItem('PORTARIA_CACHE_GUESTS', JSON.stringify(data));
+          pill.className = 'local-pill';
+          pill.textContent = '● Base Conectada';
+          return;
+        }
+      } catch(e) {}
+    }
+
+    // Modo Offline
+    const local = localStorage.getItem('PORTARIA_CACHE_GUESTS');
+    guests = local ? JSON.parse(local) : [];
+    pill.className = 'local-pill offline';
+    pill.textContent = '● Modo Offline';
+  }
+
+  // 2. INICIALIZAÇÃO ROBUSTA DA CÂMARA (SEM TRAVAMENTO)
+  window.toggleCamera = async function() {
+    const btn = document.getElementById('btnToggleCam');
+    const badge = document.getElementById('camStatusBadge');
+    const placeholder = document.getElementById('camPlaceholder');
+
+    // Se estiver a rodar dentro do navegador do WhatsApp, avisa
+    if (/FBAN|FBAV|WhatsApp/i.test(navigator.userAgent)) {
+      alert("ATENÇÃO: O WhatsApp bloqueia a câmara por segurança.\n\nToque nos 3 pontinhos e escolha 'Abrir no Chrome' ou 'Abrir no Safari'.");
+      return;
+    }
+
+    if (camActive) {
+      if (html5Scanner) {
+        try { await html5Scanner.stop(); html5Scanner.clear(); } catch(e){}
+        html5Scanner = null;
+      }
+      camActive = false;
+      btn.textContent = '▶ Ligar Câmara';
+      btn.className = 'btn btn-gold';
+      badge.textContent = 'Desligada';
+      placeholder.style.display = 'block';
+      return;
+    }
+
+    badge.textContent = 'A ligar câmara...';
+    placeholder.style.display = 'none';
+
+    html5Scanner = new Html5Qrcode("reader");
+
+    // Configuração com prioridade para a lente traseira principal
+    const cameraConfig = { facingMode: "environment" };
+    const scanConfig = { fps: 12, qrbox: { width: 230, height: 230 } };
+
+    try {
+      await html5Scanner.start(
+        cameraConfig,
+        scanConfig,
+        (decodedText) => {
+          const clean = decodedText.trim();
+          if (clean === lastScanned) return;
+          inspectGuest(clean);
+        },
+        () => {}
+      );
+
+      camActive = true;
+      btn.textContent = '■ Parar Câmara';
+      btn.className = 'btn btn-danger';
+      badge.textContent = 'Ativa';
+    } catch(err) {
+      console.error("Falha ao abrir câmara:", err);
+      camActive = false;
+      placeholder.style.display = 'block';
+      btn.textContent = '▶ Ligar Câmara';
+      badge.textContent = 'Erro';
+
+      if (err.name === 'NotAllowedError' || String(err).includes('Permission')) {
+        alert("PERMISSÃO RECUSADA:\nToque no ícone do cadeado junto ao link do site e autorize a Câmara.");
+      } else {
+        alert("Não foi possível aceder à câmara diretamente.\n\nPode usar o botão '📁 Ler Código de Foto' ou a Pesquisa de Emergência abaixo.");
+      }
+    }
+  };
+
+  window.toggleTorch = async function() {
+    if (!html5Scanner || !camActive) return alert("Ligue a câmara primeiro!");
+    isTorchOn = !isTorchOn;
+    try {
+      await html5Scanner.applyVideoConstraints({ advanced: [{ torch: isTorchOn }] });
+    } catch(e) {
+      alert("Lanterna não suportada neste aparelho.");
+    }
+  };
+
+  // 3. LEITURA VIA FICHEIRO DE FOTO / CAPTURA NATIVA (SALVA-VIDAS)
+  window.scanImageFile = async function(input) {
+    if (!input.files || input.files.length === 0) return;
+    const file = input.files[0];
+    showToast("A processar imagem...");
+
+    try {
+      const scannerInst = new Html5Qrcode("reader");
+      const decodedText = await scannerInst.scanFile(file, true);
+      inspectGuest(decodedText.trim());
+      scannerInst.clear();
+    } catch(e) {
+      alert("Não foi possível ler nenhum código QR nítido nesta imagem.");
+    }
+  };
+
+  // 4. INSPEÇÃO DE CONVIDADO (MOSTRA MESA E PEDE CONFIRMAÇÃO)
+  function inspectGuest(tokenQuery) {
+    lastScanned = tokenQuery;
+    const box = document.getElementById('scanResultBox');
+    box.style.display = 'block';
+    box.scrollIntoView({ behavior: 'smooth', block: 'center' });
+
+    const g = guests.find(x => x.token.toUpperCase() === tokenQuery.toUpperCase());
+
+    if (!g) {
+      playSound('err');
+      box.className = 'scan-result error';
+      box.innerHTML = `
+        <h4 style="margin:0 0 6px; color:var(--red);">✕ Convite Não Encontrado</h4>
+        <p style="margin:0; font-size:13px;">O código <strong style="font-family:monospace;">${tokenQuery}</strong> não existe na lista oficial do casamento.</p>
+      `;
+      return;
+    }
+
+    const remaining = g.quota - g.used;
+
+    if (remaining <= 0) {
+      playSound('err');
+      box.className = 'scan-result warning';
+      box.innerHTML = `
+        <h4 style="margin:0 0 4px; color:var(--amber);">⚠ Lotação Esgotada</h4>
+        <p style="margin:0; font-size:15px; font-weight:700;">${g.name}</p>
+        <p style="margin:4px 0 0; font-size:13px;">Mesa: <b>${g.table_name || 'Livre'}</b></p>
+        <p style="margin:6px 0 0; font-size:11px; color:var(--muted);">Todas as <b>${g.quota} pessoas</b> autorizadas já deram entrada.</p>
+      `;
+      return;
+    }
+
+    playSound('ok');
+    box.className = 'scan-result success';
+
+    let actionBtns = '';
+    for (let i = 1; i <= remaining; i++) {
+      actionBtns += `<button class="btn btn-primary" style="padding:8px 14px; font-size:13px;" onclick="confirmCheckin('${g.token}', ${i})">+${i} ${i === 1 ? 'Pessoa' : 'Pessoas'}</button>`;
+    }
+
+    box.innerHTML = `
+      <div style="display:flex; justify-content:space-between; align-items:flex-start;">
+        <div>
+          <span class="status-badge status-ok">Convite Válido</span>
+          <h3 style="margin:6px 0 2px; font-size:20px; font-family:'Cormorant Garamond',serif;">${g.name}</h3>
+          <p style="margin:0; font-size:15px; color:var(--green); font-weight:700;">📍 Lugar: ${g.table_name || 'Livre'}</p>
+        </div>
+        <div style="text-align:right;">
+          <span style="font-size:28px; font-weight:800; color:var(--green);">${remaining}</span>
+          <span style="display:block; font-size:10px; color:var(--muted);">vagas restantes</span>
+        </div>
+      </div>
+      <div style="margin-top:14px; padding-top:12px; border-top:1px solid #cde6d1; display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:8px;">
+        <span style="font-size:12px; font-weight:600;">Dar entrada a:</span>
+        <div style="display:flex; gap:6px;">${actionBtns}</div>
+      </div>
+    `;
+  }
+
+  // 5. CONFIRMAÇÃO EXPLÍCITA DE ADMISSÃO
+  window.confirmCheckin = async function(token, count) {
+    const box = document.getElementById('scanResultBox');
+    const g = guests.find(x => x.token === token);
+    if (!g) return;
+
+    if (navigator.vibrate) navigator.vibrate([100, 50, 100]);
+
+    // Registo Atómico na Nuvem
+    if (sb && navigator.onLine) {
+      try {
+        const { data: res, error } = await sb.rpc('process_checkin', {
+          p_token: token,
+          p_count: count,
+          p_checkin_uuid: crypto.randomUUID ? crypto.randomUUID() : Date.now().toString(),
+          p_gate: 'Portaria Principal'
+        });
+
+        if (!error && res && res.success) {
+          playSound('ok');
+          g.used = res.new_used;
+          box.className = 'scan-result success';
+          box.innerHTML = `
+            <div style="text-align:center; padding:12px;">
+              <span style="font-size:32px;">✅</span>
+              <h3 style="margin:4px 0; color:#28703c; font-size:18px;">ENTRADA CONFIRMADA!</h3>
+              <p style="margin:0; font-size:15px; font-weight:700;">${res.guest_name}</p>
+              <p style="margin:4px 0 0; color:var(--green);">Entraram <b>${count}</b> pessoa(s) · Mesa: <b>${res.table_name}</b></p>
+              <p style="margin:6px 0 0; font-size:11px; color:var(--muted);">Total presente: ${res.new_used} de ${res.quota} pessoas</p>
+            </div>
+          `;
+          showToast(`✓ Confirmado: +${count} para ${res.guest_name}`);
+          return;
+        } else if (res && res.reason === 'exhausted') {
+          playSound('err');
+          alert("LOTAÇÃO ESGOTADA:\nEste convite já atingiu o limite de pessoas noutra porta.");
+          return;
+        }
+      } catch(e) {}
+    }
+
+    // Registo Local Offline
+    g.used += count;
+    localStorage.setItem('PORTARIA_CACHE_GUESTS', JSON.stringify(guests));
+    playSound('ok');
+    box.className = 'scan-result success';
+    box.innerHTML = `
+      <div style="text-align:center; padding:12px;">
+        <span style="font-size:32px;">✅</span>
+        <h3 style="margin:4px 0; color:#28703c; font-size:18px;">ENTRADA REGISTADA (LOCAL)</h3>
+        <p style="margin:0; font-size:15px; font-weight:700;">${g.name}</p>
+        <p style="margin:4px 0 0;">Entraram <b>${count}</b> pessoa(s) · Mesa: <b>${g.table_name || 'Livre'}</b></p>
+      </div>
+    `;
+    showToast(`✓ Registado localmente (+${count})`);
+  };
+
+  // 6. BUSCA MANUAL DE EMERGÊNCIA
+  window.searchGuests = function(q) {
+    const target = document.getElementById('manualResults');
+    const clean = q.trim().toLowerCase();
+    if (clean.length < 2) { target.innerHTML = ''; return; }
+
+    const matches = guests.filter(g => (g.name || '').toLowerCase().includes(clean) || (g.phone || '').includes(clean));
+    target.innerHTML = '';
+
+    if (matches.length === 0) {
+      target.innerHTML = '<p style="font-size:12px; color:var(--muted); text-align:center; margin:8px 0;">Nenhum convidado encontrado.</p>';
+      return;
+    }
+
+    matches.slice(0, 5).forEach(g => {
+      const remaining = g.quota - g.used;
+      const isFull = remaining <= 0;
+
+      const div = document.createElement('div');
+      div.style.cssText = "display:flex; justify-content:space-between; align-items:center; padding:10px 0; border-bottom:1px solid var(--line);";
+      
+      div.innerHTML = `
+        <div>
+          <strong style="font-size:14px;">${g.name}</strong>
+          <small style="display:block; color:var(--muted);">${g.table_name || 'Livre'} · ${isFull ? 'Esgotado' : remaining + ' vaga(s)'}</small>
+        </div>
+        <button class="btn btn-secondary" style="font-size:11px; padding:6px 10px;" onclick="inspectGuest('${g.token}')">Validar</button>
+      `;
+      target.appendChild(div);
+    });
+  };
+
+  window.addEventListener('DOMContentLoaded', loadGuests);
+})();
+</script>
+</body>
+</html>
