@@ -1,0 +1,19 @@
+{
+  "name": "Portaria | Kiany & Julieta",
+  "short_name": "Portaria K&J",
+  "description": "Sistema de validação e controlo de portaria em tempo real",
+  "start_url": "/portaria.html",
+  "scope": "/",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#183b35",
+  "theme_color": "#183b35",
+  "icons": [
+    {
+      "src": "icon.svg",
+      "sizes": "192x192 512x512",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
+}
