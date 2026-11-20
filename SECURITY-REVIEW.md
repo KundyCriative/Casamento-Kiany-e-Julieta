@@ -19,6 +19,7 @@
 - Falha de rede não simula sucesso nem incrementa contadores locais.
 - O painel bloqueia criação, edição e eliminação quando não há ligação à base central; evita alterações locais que não seriam sincronizadas.
 - A pesquisa e a validação da portaria escapam os nomes e mesas dos convidados antes de os inserir em HTML.
+- Painel e portaria disponibilizam saída de sessão; a operação limpa a cache local de convidados e termina a sessão Supabase no dispositivo. Na portaria, também interrompe a câmara antes de sair.
 - Identificadores de check-in usam UUID criptográfico.
 - Conteúdo dinâmico proveniente de convites e respostas é escapado antes de ser inserido em HTML.
 - Cache PWA limitado ao shell da aplicação; endpoints Auth e REST não são guardados.
