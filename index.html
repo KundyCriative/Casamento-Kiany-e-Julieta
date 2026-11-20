@@ -802,6 +802,7 @@ body:not(.auth-ready) .app, body:not(.auth-ready) > header, body:not(.auth-ready
 
     if (!name) return alert("Por favor, preencha o nome do convidado.");
     if (isNaN(quota) || quota < 1) return alert("A lotação deve ser de pelo menos 1 pessoa.");
+    if (!sb || !navigator.onLine) return alert("Sem ligação à base central. A alteração não foi guardada. Restabeleça a ligação e tente novamente.");
 
     btn.disabled = true;
     btn.textContent = 'A guardar...';
@@ -857,6 +858,7 @@ body:not(.auth-ready) .app, body:not(.auth-ready) > header, body:not(.auth-ready
     const g = guests.find(x => x.id === id);
     if (!g) return;
     if (!confirm(`Tem a certeza absoluta de que deseja eliminar o convite de "${g.name}"?\nEsta ação anula a validade do código.`)) return;
+    if (!sb || !navigator.onLine) return alert("Sem ligação à base central. O convite não foi eliminado.");
 
     try {
       if (sb && navigator.onLine) {
