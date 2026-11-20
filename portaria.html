@@ -311,7 +311,8 @@ body:not(.auth-ready) .app, body:not(.auth-ready) > header, body:not(.auth-ready
         const { data, error } = await sb.from('guests').select('*').order('created_at', { ascending: false });
         if (!error && Array.isArray(data)) {
           guests = data;
-          localStorage.setItem('PORTARIA_CACHE_GUESTS', JSON.stringify(data));
+          try { localStorage.setItem('PORTARIA_CACHE_GUESTS', JSON.stringify(data)); }
+          catch (cacheError) { console.warn('Não foi possível actualizar a cache local da portaria:', cacheError); }
           pill.className = 'local-pill';
           pill.textContent = '● Base Conectada';
           return;
