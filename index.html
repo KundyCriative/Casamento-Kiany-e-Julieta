@@ -323,7 +323,7 @@ body:not(.auth-ready) .app, body:not(.auth-ready) > header, body:not(.auth-ready
           <div class="panel-head"><h3>Dados Oficiais da Celebração</h3></div>
           <div class="panel-body">
             <div class="field"><label for="cfgTitle">Nomes dos Noivos</label><input id="cfgTitle" value="Kiany &amp; Julieta"></div>
-            <div class="field"><label for="cfgDate">Data</label><input id="cfgDate" value="Sábado, 14 de Novembro de 2026"></div>
+            <div class="field"><label for="cfgDate">Data</label><input id="cfgDate" value="Sexta-feira, 27 de Novembro de 2026"></div>
             <div class="field"><label for="cfgTime">Hora</label><input id="cfgTime" value="16h00"></div>
             <div class="field"><label for="cfgVenue">Local do Salão</label><input id="cfgVenue" value="Espaço Luanda, Talatona"></div>
             <p role="note" style="font-size:11px; color:#8a5b16; background:#fff7eb; border:1px solid #eedcc0; border-radius:7px; padding:10px 12px;">Nota de segurança: este PIN é apenas uma barreira visual no navegador. Não substitui autenticação real nem políticas RLS no Supabase.</p>
@@ -425,7 +425,7 @@ body:not(.auth-ready) .app, body:not(.auth-ready) > header, body:not(.auth-ready
           <div id="pdfQrBox" style="background:#fff; padding:8px; border:1px solid #dfd1b6; border-radius:8px; min-width:130px; min-height:130px; display:flex; align-items:center; justify-content:center;"></div>
         </div>
         <div style="font-family:monospace; font-size:10px; color:#788680;" id="pdfToken">CÓDIGO: KJ-000000</div>
-        <div style="margin-top:12px; font-family:sans-serif; font-size:11px; font-weight:bold; color:#183b35;" id="pdfDateTime">Sábado, 14 de Novembro de 2026 · 16h00</div>
+        <div style="margin-top:12px; font-family:sans-serif; font-size:11px; font-weight:bold; color:#183b35;" id="pdfDateTime">Sexta-feira, 27 de Novembro de 2026 · 16h00</div>
         <div style="font-family:sans-serif; font-size:10px; color:#697873;" id="pdfVenue">Espaço Luanda, Talatona</div>
       </div>
     </div>
@@ -572,10 +572,10 @@ body:not(.auth-ready) .app, body:not(.auth-ready) > header, body:not(.auth-ready
   function loadStoredConfig() {
     try {
       const raw = localStorage.getItem(CONFIG_KEY);
-      if (!raw) return { title: 'Kiany & Julieta', date: 'Sábado, 14 de Novembro de 2026', time: '16h00', venue: 'Espaço Luanda, Talatona', pin: '2026' };
+      if (!raw) return { title: 'Kiany & Julieta', date: 'Sexta-feira, 27 de Novembro de 2026', time: '16h00', venue: 'Espaço Luanda, Talatona', pin: '2026' };
       return JSON.parse(raw);
     } catch (e) {
-      return { title: 'Kiany & Julieta', date: 'Sábado, 14 de Novembro de 2026', time: '16h00', venue: 'Espaço Luanda, Talatona', pin: '2026' };
+      return { title: 'Kiany & Julieta', date: 'Sexta-feira, 27 de Novembro de 2026', time: '16h00', venue: 'Espaço Luanda, Talatona', pin: '2026' };
     }
   }
 
