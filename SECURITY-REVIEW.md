@@ -17,6 +17,8 @@
 - O painel exige papel `admin`; a portaria aceita `gate` ou `admin`.
 - Check-in só é confirmado após resposta positiva da RPC `process_checkin`.
 - Falha de rede não simula sucesso nem incrementa contadores locais.
+- O painel bloqueia criação, edição e eliminação quando não há ligação à base central; evita alterações locais que não seriam sincronizadas.
+- A pesquisa e a validação da portaria escapam os nomes e mesas dos convidados antes de os inserir em HTML.
 - Identificadores de check-in usam UUID criptográfico.
 - Conteúdo dinâmico proveniente de convites e respostas é escapado antes de ser inserido em HTML.
 - Cache PWA limitado ao shell da aplicação; endpoints Auth e REST não são guardados.
@@ -32,6 +34,17 @@
 - A chave `service_role` não deve ser colocada no frontend, no repositório ou em mensagens.
 - Não alterar directamente `auth.users` por SQL para atribuir papéis.
 - Não reabrir permissões públicas `anon` como atalho.
+
+## Auditoria adicional em 20/11/2026
+
+- Consulta às FKs e colunas `user_id`: não foram encontradas relações activas com `auth.users` nem FKs em colunas chamadas `user_id` no esquema consultado. Não há migração de autoria por utilizador a fazer neste modelo actual de conta única.
+- Relação existente relevante: `checkin_logs.guest_id` referencia convidados; o advisor recomenda índice de cobertura nessa FK.
+- RLS está activo em `guests` e `checkin_logs`; o papel `anon` não tem SELECT nas duas tabelas. O papel `authenticated` tem privilégios SQL, mas as políticas RLS limitam as linhas por papel.
+- Políticas observadas: administração de convidados apenas para `admin`; leitura de convidados para `gate` ou `admin`; leitura de logs apenas para `admin`.
+- A RPC `process_checkin` está em `SECURITY DEFINER`, com validação interna de `app_metadata.role` para `gate/admin`, tabelas qualificadas pelo schema e execução concedida a `authenticated` e `service_role`. O advisor continua a sinalizar a função porque é executável por utilizadores autenticados; esta é uma excepção deliberada para manter a operação atómica, mas merece revisão específica antes de ampliar o sistema.
+- Advisors de segurança: protecção contra palavras-passe comprometidas desactivada; aviso da RPC SECURITY DEFINER.
+- Advisors de desempenho: índice em falta na FK `checkin_logs.guest_id`; três avisos de initplan nas políticas RLS; políticas SELECT permissivas sobrepostas em `guests`; dois índices de convidados ainda sem uso observado. Com apenas 36 convidados, não justifica introduzir alterações de esquema arriscadas antes do evento.
+- A branch foi actualizada com escape HTML na portaria e bloqueio de mutações administrativas offline. Ainda falta executar validação sintáctica automatizada e testes funcionais autenticados; estes não foram simulados contra convidados reais.
 
 ## Limitações ainda por fechar
 
