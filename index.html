@@ -226,6 +226,7 @@ body:not(.auth-ready) .app, body:not(.auth-ready) > header, body:not(.auth-ready
         <span class="local-pill" id="syncPill">● A Conectar...</span>
         <a href="portaria.html" target="_blank" class="btn btn-gold" style="font-weight:700;">📷 Abrir Portaria (Scanner) ↗</a>
         <button class="btn btn-primary" onclick="requireAdmin(showGuestModal)">＋ Novo Convidado</button>
+        <button class="btn btn-secondary btn-small" onclick="signOutApp()" aria-label="Terminar sessão">Sair</button>
       </div>
     </header>
 
@@ -537,6 +538,19 @@ body:not(.auth-ready) .app, body:not(.auth-ready) > header, body:not(.auth-ready
       }
     } catch(e) { document.getElementById('authError').textContent='Falha ao validar sessão. Tente novamente.'; }
   }
+
+  window.signOutApp = async function() {
+    if (!confirm("Terminar a sessão neste dispositivo? A cache local de convidados será apagada.")) return;
+    try { if (sb) await sb.auth.signOut(); } catch (e) { console.warn("Falha ao terminar sessão remota:", e); }
+    localStorage.removeItem(GUESTS_CACHE_KEY);
+    sessionStorage.removeItem("KJ_ADMIN_AUTHORIZED");
+    guests = [];
+    document.body.classList.remove("auth-ready");
+    document.getElementById("authGate").style.display = "flex";
+    document.getElementById("authPassword").value = "";
+    document.getElementById("authError").textContent = "Sessão terminada.";
+    document.getElementById("syncPill").textContent = "● Sessão terminada";
+  };
 
   // --- CONTROLO DE ACESSO / PIN DO ADMINISTRADOR ---
   window.requireAdmin = function(actionCallback) {
