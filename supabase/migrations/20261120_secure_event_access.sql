@@ -60,7 +60,7 @@ create or replace function public.process_checkin(
 returns json
 language plpgsql
 security definer
-set search_path = public, pg_temp
+set search_path = pg_catalog, public, pg_temp
 as $function$
 declare
   v_guest public.guests%rowtype;
