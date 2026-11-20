@@ -137,7 +137,10 @@ body:not(.auth-ready) .app, body:not(.auth-ready) > header, body:not(.auth-ready
     <div style="font-size:10px; text-transform:uppercase; letter-spacing:1px; color:var(--gold);">Portaria Oficial</div>
     <div class="brand-title">Kiany &amp; Julieta</div>
   </div>
-  <span class="local-pill" id="syncPill">● A Conectar...</span>
+  <div style="display:flex; align-items:center; gap:8px; flex-wrap:wrap; justify-content:flex-end;">
+    <span class="local-pill" id="syncPill">● A Conectar...</span>
+    <button class="btn btn-secondary" style="font-size:11px; padding:6px 10px;" onclick="signOutApp()" aria-label="Terminar sessão">Sair</button>
+  </div>
 </header>
 
 <main class="container">
@@ -600,6 +603,27 @@ body:not(.auth-ready) .app, body:not(.auth-ready) > header, body:not(.auth-ready
       }
     } catch(e) { document.getElementById('authError').textContent='Falha ao validar sessão. Tente novamente.'; }
   }
+
+  window.signOutApp = async function() {
+    if (!confirm("Terminar a sessão neste dispositivo? A cache local de convidados será apagada.")) return;
+    if (html5Scanner && camActive) {
+      try { await html5Scanner.stop(); html5Scanner.clear(); } catch (e) { console.warn("Falha ao parar a câmara:", e); }
+    }
+    html5Scanner = null; camActive = false; lastScanned = null;
+    try { if (sb) await sb.auth.signOut(); } catch (e) { console.warn("Falha ao terminar sessão remota:", e); }
+    localStorage.removeItem("PORTARIA_CACHE_GUESTS");
+    guests = [];
+    document.body.classList.remove("auth-ready");
+    document.getElementById("authGate").style.display = "flex";
+    document.getElementById("authPassword").value = "";
+    document.getElementById("authError").textContent = "Sessão terminada.";
+    document.getElementById("syncPill").textContent = "● Sessão terminada";
+    document.getElementById("btnToggleCam").textContent = "▶ Ligar Câmara";
+    document.getElementById("camStatusBadge").textContent = "Desligada";
+    document.getElementById("camPlaceholder").style.display = "block";
+    document.getElementById("scanResultBox").style.display = "none";
+    document.getElementById("manualResults").textContent = "";
+  };
 
   window.addEventListener('DOMContentLoaded', bootGateAuth);
 })();
