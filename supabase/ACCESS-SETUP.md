@@ -22,3 +22,17 @@ Esta aplicação usa dois perfis simples no Supabase Auth, sem tabelas de utiliz
 
 ## Atenção
 A migração não elimina convidados nem logs. Adiciona duas colunas ao histórico e substitui políticas/função. Não executar em produção sem backup e confirmação de que os utilizadores admin/gate já foram criados.
+
+### Atribuir o papel seguro (SQL Editor)
+
+Depois de criar cada utilizador em Authentication → Users, executar uma instrução por conta, substituindo o e-mail:
+
+```sql
+update auth.users
+set raw_app_meta_data = coalesce(raw_app_meta_data, '{}'::jsonb)
+  || jsonb_build_object('role', 'admin')
+where email = 'administrador@exemplo.com';
+```
+
+Para a conta partilhada da portaria, usar `'gate'` no valor de `role`. Confirmar que cada UPDATE afectou exactamente uma conta. O papel fica em `app_metadata` (não em `user_metadata`), para que o próprio utilizador não o possa alterar pelo cliente. Depois de atribuir o papel, terminar e iniciar sessão novamente para renovar o JWT.
+
