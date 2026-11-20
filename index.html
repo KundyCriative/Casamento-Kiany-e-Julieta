@@ -161,6 +161,27 @@ tbody tr:hover { background: #fcfcf7; }
 </style>
 </head>
 <body>
+<style>
+body:not(.auth-ready) .app, body:not(.auth-ready) > header, body:not(.auth-ready) > main { visibility:hidden !important; }
+.auth-gate{position:fixed;inset:0;z-index:100000;background:#10251f;display:flex;align-items:center;justify-content:center;padding:20px;font-family:inherit}
+.auth-card{width:min(100%,390px);background:#fff;border-radius:16px;padding:26px;box-shadow:0 18px 60px #0005;color:#20342d}
+.auth-card h2{margin:0 0 8px;font-size:23px}.auth-card p{font-size:13px;color:#66766f;line-height:1.5}
+.auth-card label{display:block;font-size:12px;font-weight:700;margin:14px 0 6px}
+.auth-card input{width:100%;box-sizing:border-box;padding:13px;border:1px solid #d6dfda;border-radius:8px;font:inherit}
+.auth-card button{width:100%;padding:13px;margin-top:16px;border:0;border-radius:8px;background:#bd9a5b;color:#fff;font-weight:700;cursor:pointer}
+.auth-error{color:#b42318!important;min-height:18px}
+</style>
+<div id="authGate" class="auth-gate">
+  <form class="auth-card" onsubmit="event.preventDefault(); signInApp();">
+    <div style="font-size:11px;letter-spacing:2px;color:#bd9a5b;font-weight:800">KIANY &amp; JULIETA</div>
+    <h2>Acesso reservado</h2>
+    <p id="authDescription">Entre com a sua conta autorizada para aceder ao painel.</p>
+    <label for="authEmail">E-mail</label><input id="authEmail" type="email" autocomplete="username" required>
+    <label for="authPassword">Palavra-passe</label><input id="authPassword" type="password" autocomplete="current-password" required>
+    <p id="authError" class="auth-error" role="alert"></p>
+    <button id="authSubmit" type="submit">Entrar</button>
+  </form>
+</div>
 
 <div class="app">
   <!-- BARRA LATERAL -->
@@ -431,7 +452,7 @@ tbody tr:hover { background: #fcfcf7; }
   try {
     if (window.supabase && SUPABASE_ANON_KEY.length > 20) {
       sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
-        auth: { persistSession: false }
+        auth: { persistSession: true, autoRefreshToken: true, detectSessionInUrl: true }
       });
     }
   } catch(e) {
@@ -478,6 +499,43 @@ tbody tr:hover { background: #fcfcf7; }
     clearTimeout(el._t);
     el._t = setTimeout(() => el.classList.remove('show'), 3800);
   };
+
+  async function signInApp() {
+    const email=document.getElementById('authEmail').value.trim();
+    const password=document.getElementById('authPassword').value;
+    const errorBox=document.getElementById('authError');
+    const button=document.getElementById('authSubmit');
+    errorBox.textContent='';
+    button.disabled=true; button.textContent='A autenticar...';
+    try {
+      if(!sb) throw new Error('Serviço de autenticação indisponível. Verifique a ligação.');
+      const {data,error}=await sb.auth.signInWithPassword({email,password});
+      if(error) throw error;
+      const role=data.user?.app_metadata?.role;
+      if(role!=='admin') { await sb.auth.signOut(); throw new Error('Esta conta não tem perfil de administrador.'); }
+      document.body.classList.add('auth-ready');
+      document.getElementById('authGate').style.display='none';
+      await loadData();
+    } catch(e) { errorBox.textContent=e.message||'Não foi possível entrar.'; }
+    finally { button.disabled=false; button.textContent='Entrar'; }
+  }
+  window.signInApp=signInApp;
+
+  async function bootAdminAuth() {
+    if(!sb) { document.getElementById('authError').textContent='Não foi possível ligar ao serviço de autenticação.'; return; }
+    try {
+      const {data:{session}}=await sb.auth.getSession();
+      const role=session?.user?.app_metadata?.role;
+      if(session && role==='admin') {
+        document.body.classList.add('auth-ready');
+        document.getElementById('authGate').style.display='none';
+        await loadData();
+      } else if(session) {
+        await sb.auth.signOut();
+        document.getElementById('authError').textContent='Esta conta não tem acesso ao painel.';
+      }
+    } catch(e) { document.getElementById('authError').textContent='Falha ao validar sessão. Tente novamente.'; }
+  }
 
   // --- CONTROLO DE ACESSO / PIN DO ADMINISTRADOR ---
   window.requireAdmin = function(actionCallback) {
@@ -950,7 +1008,7 @@ tbody tr:hover { background: #fcfcf7; }
 
   document.addEventListener('DOMContentLoaded', () => {
     applyConfigToInterface(loadStoredConfig());
-    loadData();
+    bootAdminAuth();
   });
 
 })();
