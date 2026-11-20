@@ -992,8 +992,13 @@ body:not(.auth-ready) .app, body:not(.auth-ready) > header, body:not(.auth-ready
   };
 
   window.exportCsvList = function() {
-    const header = "Nome;Telefone;Vagas;Entraram;Mesa;Codigo\n";
-    const body = guests.map(g => `"${g.name}";"${g.phone || ''}";${g.quota};${g.used};"${g.table_name || ''}";"${g.token}"`).join("\n");
+    const csvCell = (value) => {
+      let text = String(value ?? '');
+      if (/^[\s]*[=+\-@]/.test(text)) text = "'" + text;
+      return '"' + text.replace(/"/g, '""') + '"';
+    };
+    const header = ["Nome", "Telefone", "Vagas", "Entraram", "Mesa", "Codigo"].map(csvCell).join(";");
+    const body = guests.map(g => [g.name, g.phone, g.quota, g.used, g.table_name, g.token].map(csvCell).join(";")).join("\n");
     const blob = new Blob(["\ufeff" + header + body], { type: "text/csv;charset=utf-8;" });
     const a = document.createElement('a');
     a.href = URL.createObjectURL(blob);
