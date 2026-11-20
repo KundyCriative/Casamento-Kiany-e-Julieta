@@ -1,47 +1,44 @@
-# Preparação de acessos — Kiany & Julieta
+# Acesso à aplicação — Kiany & Julieta
 
 ## Estado actual
 
-A configuração de utilizadores foi suspensa temporariamente por decisão do responsável pelo projecto.
+O projecto utiliza uma única conta para o responsável, tanto no painel administrativo como na portaria:
 
-As contas seguintes existem no Supabase Auth, mas ainda não têm papel atribuído em `app_metadata.role`:
-- `admin1@example.com`
-- `admin2@example.com`
-- `portaria@example.com`
+- Email: `adnilsonsalvador21@gmail.com`
+- Papel em `app_metadata.role`: `admin`
+- Autenticação: email e palavra-passe.
+- Convite aceite, email confirmado e primeiro início de sessão confirmado.
 
-Não foram apagadas. Não foi publicada Edge Function para lhes atribuir papéis.
+A conta `admin` tem acesso ao painel e à portaria. Não é necessário criar uma segunda conta de portaria para a operação actual.
 
-## Modelo de permissões preparado
+## Modelo de permissões
 
-- `admin`: acesso ao painel e gestão de convidados.
-- `gate`: acesso operacional da portaria, leitura de convidados e execução da RPC de check-in.
-- Os papéis são verificados em `app_metadata`, não em `user_metadata`.
+- `admin`: gestão do painel, leitura dos registos e acesso à portaria.
+- `gate`: acesso operacional limitado à portaria, caso venha a ser necessária uma conta separada no futuro.
+- Os papéis são lidos de `app_metadata`, não de `user_metadata`.
 
-## Importante — não contornar a segurança
+## Segurança
 
-As migrações de segurança já foram aplicadas ao projecto Supabase. Por isso, as interfaces protegidas exigem uma sessão autenticada com o papel correcto.
+As migrações de segurança foram aplicadas ao Supabase. As tabelas protegidas exigem sessão autenticada com o papel correcto.
 
 Não:
 - actualizar directamente `auth.users` com SQL;
 - conceder novamente acesso público a `anon` nas tabelas;
 - colocar uma chave `service_role` no browser ou no repositório;
-- publicar uma função administrativa sem autenticação e validação completas.
+- publicar funções administrativas temporárias sem validação e limpeza.
 
-A atribuição futura dos papéis deverá ser feita pela Admin API oficial do Supabase, através de um processo administrativo seguro.
+A função temporária de bootstrap foi removida. O segredo temporário também foi removido, conforme confirmação do responsável.
 
 ## Migrações aplicadas
 
 - `20261120_secure_event_access`
 - `20261120_revoke_rls_auto_enable_api_access`
 
-As migrações preservaram os dados existentes. Última verificação: 36 convidados e 0 check-ins.
+Última contagem confirmada: 36 convidados e 0 check-ins. Preservar estes dados.
 
-## Retoma futura
+## Operação
 
-Quando houver disponibilidade para concluir a autenticação:
-1. Atribuir `app_metadata.role = admin` às contas administrativas e `app_metadata.role = gate` à conta da portaria, através de mecanismo oficial.
-2. Renovar as sessões Auth.
-3. Testar painel, leitura de convidados e check-in com convite de teste.
-4. Confirmar que o histórico é gravado uma única vez e que falhas de rede não simulam sucesso.
-
-Até lá, manter a base protegida e não activar o check-in sem autenticação válida.
+1. Usar o mesmo email e palavra-passe no painel e na portaria.
+2. Confirmar que a sessão apresenta o papel `admin`.
+3. Não efectuar check-ins de teste com convites reais.
+4. Se for necessária uma conta separada de portaria, criá-la apenas com aprovação e atribuir o papel `gate` através da Admin API oficial do Supabase.
