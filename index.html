@@ -130,6 +130,25 @@ tbody tr:hover { background: #fcfcf7; }
   .mobile-bottom button.active { color: var(--green); }
 }
 
+@media (max-width: 640px) {
+  .topbar { height: auto; min-height: 68px; padding: 12px 14px; align-items: flex-start; }
+  .topbar > div:last-child { justify-content: flex-end; }
+  .topbar > div:last-child > a { display: none; }
+  .topbar h1 { font-size: 19px; }
+  .page-intro { align-items: flex-start; flex-direction: column; }
+  .page-intro h2 { font-size: 31px; }
+  .stats { gap: 9px; }
+  .stat { padding: 14px; }
+  .stat-number { font-size: 34px; }
+  .panel-head, .panel-body { padding: 14px; }
+  .panel-head > div { width: 100%; }
+  #searchGuest { min-width: 0; flex: 1; }
+  .content { padding: 18px 12px 92px; }
+}
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { scroll-behavior: auto !important; animation-duration: .01ms !important; animation-iteration-count: 1 !important; transition-duration: .01ms !important; }
+}
+
 @media print {
   body { background: white; }
   .app, .mobile-bottom, .modal-backdrop, .notice, #pdfWrapper { display: none !important; }
@@ -286,6 +305,7 @@ tbody tr:hover { background: #fcfcf7; }
             <div class="field"><label for="cfgDate">Data</label><input id="cfgDate" value="Sábado, 14 de Novembro de 2026"></div>
             <div class="field"><label for="cfgTime">Hora</label><input id="cfgTime" value="16h00"></div>
             <div class="field"><label for="cfgVenue">Local do Salão</label><input id="cfgVenue" value="Espaço Luanda, Talatona"></div>
+            <p role="note" style="font-size:11px; color:#8a5b16; background:#fff7eb; border:1px solid #eedcc0; border-radius:7px; padding:10px 12px;">Nota de segurança: este PIN é apenas uma barreira visual no navegador. Não substitui autenticação real nem políticas RLS no Supabase.</p>
             <div class="field"><label for="cfgPin">PIN de Segurança do Administrador</label><input id="cfgPin" type="password" maxlength="8" value="2026" placeholder="Defina um PIN de 4 a 8 dígitos"></div>
             <button class="btn btn-primary" onclick="saveEventConfig()">Guardar Alterações</button>
           </div>
