@@ -234,6 +234,10 @@ button { cursor: pointer; }
   let audioCtx = null;
   let lastScanned = null;
 
+  function escapeHtml(value) {
+    return String(value ?? '').replace(/[&<>"']/g, (char) => ({ '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;', "'":'&#39;' })[char]);
+  }
+
   function playSound(type) {
     try {
       if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
@@ -279,8 +283,10 @@ button { cursor: pointer; }
       } catch(e) {}
     }
 
-    const local = localStorage.getItem('PORTARIA_CACHE_GUESTS');
-    guests = local ? JSON.parse(local) : [];
+    let local = null;
+    try { local = localStorage.getItem('PORTARIA_CACHE_GUESTS'); guests = local ? JSON.parse(local) : []; }
+    catch (e) { guests = []; showToast('Cache local indisponível.'); }
+    if (!Array.isArray(guests)) guests = [];
     pill.className = 'local-pill offline';
     pill.textContent = '● Modo Offline';
   }
@@ -385,7 +391,7 @@ button { cursor: pointer; }
       box.className = 'scan-result error';
       box.innerHTML = `
         <h4 style="margin:0 0 6px; color:var(--red);">✕ Convite Não Encontrado</h4>
-        <p style="margin:0; font-size:13px;">O código <strong style="font-family:monospace;">${tokenQuery}</strong> não existe na lista oficial do casamento.</p>
+        <p style="margin:0; font-size:13px;">O código <strong style="font-family:monospace;">${escapeHtml(tokenQuery)}</strong> não existe na lista oficial do casamento.</p>
       `;
       return;
     }
@@ -397,9 +403,9 @@ button { cursor: pointer; }
       box.className = 'scan-result warning';
       box.innerHTML = `
         <h4 style="margin:0 0 4px; color:var(--amber);">⚠ Lotação Esgotada</h4>
-        <p style="margin:0; font-size:15px; font-weight:700;">${g.name}</p>
-        <p style="margin:4px 0 0; font-size:13px;">Mesa: <b>${g.table_name || 'Livre'}</b></p>
-        <p style="margin:6px 0 0; font-size:11px; color:var(--muted);">Todas as <b>${g.quota} pessoas</b> autorizadas já deram entrada.</p>
+        <p style="margin:0; font-size:15px; font-weight:700;">${escapeHtml(g.name)}</p>
+        <p style="margin:4px 0 0; font-size:13px;">Mesa: <b>${escapeHtml(g.table_name || 'Livre')}</b></p>
+        <p style="margin:6px 0 0; font-size:11px; color:var(--muted);">Todas as <b>${escapeHtml(g.quota)} pessoas</b> autorizadas já deram entrada.</p>
       `;
       return;
     }
@@ -409,7 +415,7 @@ button { cursor: pointer; }
 
     let actionBtns = '';
     for (let i = 1; i <= remaining; i++) {
-      actionBtns += `<button class="btn btn-primary" style="padding:8px 14px; font-size:13px;" onclick="confirmCheckin('${g.token}', ${i})">+${i} ${i === 1 ? 'Pessoa' : 'Pessoas'}</button>`;
+      actionBtns += `<button class="btn btn-primary" style="padding:8px 14px; font-size:13px;" onclick="confirmCheckin(decodeURIComponent('${encodeURIComponent(g.token)}'), ${i})">+${i} ${i === 1 ? 'Pessoa' : 'Pessoas'}</button>`;
     }
 
     box.innerHTML = `
@@ -510,7 +516,7 @@ button { cursor: pointer; }
           <strong style="font-size:14px;">${g.name}</strong>
           <small style="display:block; color:var(--muted);">${g.table_name || 'Livre'} · ${isFull ? 'Esgotado' : remaining + ' vaga(s)'}</small>
         </div>
-        <button class="btn btn-secondary" style="font-size:11px; padding:6px 10px;" onclick="inspectGuest('${g.token}')">Validar</button>
+        <button class="btn btn-secondary" style="font-size:11px; padding:6px 10px;" onclick="inspectGuest(decodeURIComponent('${encodeURIComponent(g.token)}'))">Validar</button>
       `;
       target.appendChild(div);
     });
