@@ -545,6 +545,7 @@ body:not(.auth-ready) .app, body:not(.auth-ready) > header, body:not(.auth-ready
     localStorage.removeItem(GUESTS_CACHE_KEY);
     sessionStorage.removeItem("KJ_ADMIN_AUTHORIZED");
     guests = [];
+    renderAll();
     document.body.classList.remove("auth-ready");
     document.getElementById("authGate").style.display = "flex";
     document.getElementById("authPassword").value = "";
