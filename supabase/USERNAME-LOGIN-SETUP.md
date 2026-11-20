@@ -1,30 +1,29 @@
-# Configuração do acesso por nome de utilizador
+# Acesso por nome de utilizador — configuração suspensa
 
-O painel e a portaria apresentam apenas os campos **Nome de utilizador** e **Palavra-passe**. Internamente, o frontend traduz o nome de utilizador para um identificador de email aceite pelo Supabase Auth.
+Este documento regista uma opção técnica preparada para o projecto, mas cuja activação foi suspensa temporariamente.
 
-## Identificadores internos
+## Mapeamento preparado
 
-| Nome de utilizador | Email interno | `app_metadata.role` |
+| Nome de utilizador | Email interno | Papel esperado |
 |---|---|---|
 | `admin1` | `admin1@example.com` | `admin` |
 | `admin2` | `admin2@example.com` | `admin` |
 | `portaria` | `portaria@example.com` | `gate` |
 
-Estes emails são aliases técnicos reservados para exemplos; não são caixas de correio. Não devem ser usados para receber mensagens.
+Os emails são identificadores técnicos internos e não caixas de correio.
 
-## Configuração necessária no Supabase
+## Estado
 
-1. Em **Authentication → Providers → Email**, desactivar a confirmação de email antes de criar estes utilizadores. Sem isso, aliases sem caixa de correio não conseguem concluir a confirmação.
-2. Em **Authentication → Users**, criar os três utilizadores com os emails da tabela e definir uma palavra-passe forte e única para cada um.
-3. Definir o papel em **app_metadata** de cada utilizador, nunca em `user_metadata`:
-   - `admin1` e `admin2`: `{"role":"admin"}`
-   - `portaria`: `{"role":"gate"}`
-4. Confirmar que os utilizadores estão activos e testar primeiro o painel com um administrador e depois a portaria com a conta `portaria`.
+- As três contas foram criadas no Supabase Auth.
+- Os campos `app_metadata.role` permanecem NULL.
+- A atribuição de papéis foi suspensa.
+- Nenhuma Edge Function administrativa foi publicada.
+- Não foram apagadas contas nem alterados dados de convidados.
 
-## Segurança e limitações
+## Segurança
 
-- Não colocar palavras-passe, chaves `service_role` ou credenciais administrativas no repositório ou no frontend.
-- Os papéis são lidos de `app_metadata`; as políticas RLS continuam a ser a autoridade efectiva no banco de dados.
-- Como os aliases não recebem email, a recuperação por email não estará disponível. Guardar as palavras-passe num gestor de palavras-passe e manter um procedimento administrativo seguro para redefini-las.
-- Esta alteração não cria utilizadores nem define palavras-passe. A criação das contas deve ser feita no painel seguro do Supabase.
-- A confirmação de email desactivada reduz a verificação de posse de endereço; neste modelo, o controlo depende da criação administrativa das contas e de palavras-passe fortes.
+O Supabase Auth utiliza email ou telefone como identificador de autenticação; o frontend traduz os nomes de utilizador para os emails internos acima.
+
+Os papéis devem ser atribuídos exclusivamente por um mecanismo administrativo oficial do Supabase. Não executar `UPDATE auth.users` para alterar `raw_app_meta_data`, nem colocar chaves secretas no frontend ou no GitHub.
+
+A activação deste modelo exige atribuir os papéis, renovar as sessões e testar o fluxo completo antes de utilizar a aplicação no evento.
