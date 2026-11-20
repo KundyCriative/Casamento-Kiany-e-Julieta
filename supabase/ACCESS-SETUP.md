@@ -1,38 +1,47 @@
 # Preparação de acessos — Kiany & Julieta
 
-Esta aplicação usa dois perfis simples no Supabase Auth, sem tabelas de utilizadores adicionais.
+## Estado actual
 
-## Perfis
-- `admin`: acesso individual ao painel e gestão de convidados.
-- `gate`: conta operacional partilhada pelos dispositivos da portaria; pode consultar convidados e executar apenas a RPC de check-in.
+A configuração de utilizadores foi suspensa temporariamente por decisão do responsável pelo projecto.
 
-## Criar contas
-1. No Supabase Dashboard, abrir Authentication → Users.
-2. Criar uma conta por administrador com e-mail e palavra-passe fortes.
-3. Criar uma única conta operacional para a portaria (não reutilizar a conta pessoal de um administrador).
-4. Em cada utilizador, definir `app_metadata.role` como `admin` ou `gate`, respectivamente. Não usar `user_metadata` para este papel.
-5. Não ativar registo público de utilizadores.
+As contas seguintes existem no Supabase Auth, mas ainda não têm papel atribuído em `app_metadata.role`:
+- `admin1@example.com`
+- `admin2@example.com`
+- `portaria@example.com`
 
-## Migração
-1. Fazer backup da base de dados.
-2. Rever `supabase/migrations/20261120_secure_event_access.sql`.
-3. Executar a migração uma única vez no SQL Editor do projecto.
-4. Confirmar que as políticas permissivas anteriores foram removidas, que anon não tem acesso às tabelas e que as funções RPC só são executáveis por authenticated.
-5. Confirmar um check-in real com um convite de teste controlado e validar o histórico.
+Não foram apagadas. Não foi publicada Edge Function para lhes atribuir papéis.
 
-## Atenção
-A migração não elimina convidados nem logs. Adiciona duas colunas ao histórico e substitui políticas/função. Não executar em produção sem backup e confirmação de que os utilizadores admin/gate já foram criados.
+## Modelo de permissões preparado
 
-### Atribuir o papel seguro (SQL Editor)
+- `admin`: acesso ao painel e gestão de convidados.
+- `gate`: acesso operacional da portaria, leitura de convidados e execução da RPC de check-in.
+- Os papéis são verificados em `app_metadata`, não em `user_metadata`.
 
-Depois de criar cada utilizador em Authentication → Users, executar uma instrução por conta, substituindo o e-mail:
+## Importante — não contornar a segurança
 
-```sql
-update auth.users
-set raw_app_meta_data = coalesce(raw_app_meta_data, '{}'::jsonb)
-  || jsonb_build_object('role', 'admin')
-where email = 'administrador@exemplo.com';
-```
+As migrações de segurança já foram aplicadas ao projecto Supabase. Por isso, as interfaces protegidas exigem uma sessão autenticada com o papel correcto.
 
-Para a conta partilhada da portaria, usar `'gate'` no valor de `role`. Confirmar que cada UPDATE afectou exactamente uma conta. O papel fica em `app_metadata` (não em `user_metadata`), para que o próprio utilizador não o possa alterar pelo cliente. Depois de atribuir o papel, terminar e iniciar sessão novamente para renovar o JWT.
+Não:
+- actualizar directamente `auth.users` com SQL;
+- conceder novamente acesso público a `anon` nas tabelas;
+- colocar uma chave `service_role` no browser ou no repositório;
+- publicar uma função administrativa sem autenticação e validação completas.
 
+A atribuição futura dos papéis deverá ser feita pela Admin API oficial do Supabase, através de um processo administrativo seguro.
+
+## Migrações aplicadas
+
+- `20261120_secure_event_access`
+- `20261120_revoke_rls_auto_enable_api_access`
+
+As migrações preservaram os dados existentes. Última verificação: 36 convidados e 0 check-ins.
+
+## Retoma futura
+
+Quando houver disponibilidade para concluir a autenticação:
+1. Atribuir `app_metadata.role = admin` às contas administrativas e `app_metadata.role = gate` à conta da portaria, através de mecanismo oficial.
+2. Renovar as sessões Auth.
+3. Testar painel, leitura de convidados e check-in com convite de teste.
+4. Confirmar que o histórico é gravado uma única vez e que falhas de rede não simulam sucesso.
+
+Até lá, manter a base protegida e não activar o check-in sem autenticação válida.
