@@ -176,7 +176,7 @@ body:not(.auth-ready) .app, body:not(.auth-ready) > header, body:not(.auth-ready
     <div style="font-size:11px;letter-spacing:2px;color:#bd9a5b;font-weight:800">KIANY &amp; JULIETA</div>
     <h2>Acesso reservado</h2>
     <p id="authDescription">Entre com a sua conta autorizada para aceder ao painel.</p>
-    <label for="authEmail">E-mail</label><input id="authEmail" type="email" autocomplete="username" required>
+    <label for="authUsername">Nome de utilizador</label><input id="authUsername" type="text" autocomplete="username" autocapitalize="none" spellcheck="false" required>
     <label for="authPassword">Palavra-passe</label><input id="authPassword" type="password" autocomplete="current-password" required>
     <p id="authError" class="auth-error" role="alert"></p>
     <button id="authSubmit" type="submit">Entrar</button>
@@ -501,7 +501,9 @@ body:not(.auth-ready) .app, body:not(.auth-ready) > header, body:not(.auth-ready
   };
 
   async function signInApp() {
-    const email=document.getElementById('authEmail').value.trim();
+    const username=document.getElementById('authUsername').value.trim().toLowerCase();
+    const emailByUsername={admin1:'admin1@example.com',admin2:'admin2@example.com',portaria:'portaria@example.com'};
+    const email=emailByUsername[username];
     const password=document.getElementById('authPassword').value;
     const errorBox=document.getElementById('authError');
     const button=document.getElementById('authSubmit');
@@ -509,6 +511,7 @@ body:not(.auth-ready) .app, body:not(.auth-ready) > header, body:not(.auth-ready
     button.disabled=true; button.textContent='A autenticar...';
     try {
       if(!sb) throw new Error('Serviço de autenticação indisponível. Verifique a ligação.');
+      if(!email) throw new Error('Nome de utilizador ou palavra-passe inválidos.');
       const {data,error}=await sb.auth.signInWithPassword({email,password});
       if(error) throw error;
       const role=data.user?.app_metadata?.role;
