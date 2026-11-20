@@ -24,6 +24,8 @@
 - Conteúdo dinâmico proveniente de convites e respostas é escapado antes de ser inserido em HTML.
 - Cache PWA limitado ao shell da aplicação; endpoints Auth e REST não são guardados.
 - Cache versionada e limpeza de versões antigas.
+- Exportação CSV com aspas duplicadas e protecção contra fórmulas em campos iniciados por `=`, `+`, `-` ou `@`.
+- Falhas ao gravar a cache local da portaria já não anulam uma leitura válida da base central.
 - Melhorias de layout mobile e respeito por `prefers-reduced-motion`.
 
 ## Segurança e dados
