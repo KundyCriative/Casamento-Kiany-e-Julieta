@@ -1,79 +1,57 @@
 # Revisão profissional — Kiany & Julieta
 
-## Melhorias implementadas nesta branch
+## Estado confirmado em 20/11/2026
+
+- Branch de trabalho: `improvement/professional-hardening`.
+- PR #1 permanece Draft e não foi integrada na `main`.
+- Duas migrações de segurança foram aplicadas ao projecto Supabase após backup confirmado: `secure_event_access` e `revoke_rls_auto_enable_api_access`.
+- A base contém 36 convidados e 0 registos em `checkin_logs` na última verificação.
+- As contas Auth `admin1@example.com`, `admin2@example.com` e `portaria@example.com` foram criadas, mas os respectivos papéis `app_metadata.role` continuam NULL.
+- Não foi criado nem publicado qualquer Edge Function para atribuir papéis.
+- Não foi efectuado merge nem deploy de produção nesta fase.
+
+## Melhorias implementadas na branch
+
 - Check-in só é confirmado após resposta positiva da RPC `process_checkin`.
-- Check-in offline deixa de incrementar o contador local; a portaria apresenta aviso explícito e não simula sucesso.
-- Identificadores de check-in usam UUID criptográfico; não se usa timestamp como identificador de contingência.
-- Conteúdo proveniente do convite e da resposta do servidor é escapado antes de ser inserido em HTML dinâmico.
-- Cache do PWA passa a guardar apenas o shell estático da mesma origem; endpoints de API não são colocados no Cache Storage.
-- Cache tem versão nova e limpeza de versões antigas.
-- Melhorias de layout para ecrãs pequenos e respeito por `prefers-reduced-motion`.
-- O painel informa que o PIN frontend não equivale a autenticação.
+- Falha de rede não simula sucesso nem incrementa contadores locais.
+- Identificadores de check-in usam UUID criptográfico.
+- Conteúdo dinâmico proveniente de convites e respostas é escapado antes de ser inserido em HTML.
+- Cache PWA limitado ao shell estático da mesma origem; endpoints de API não são guardados.
+- Cache versionada e limpeza de versões antigas.
+- Melhorias de layout mobile e respeito por `prefers-reduced-motion`.
+- Login Supabase Auth preparado no painel e na portaria, condicionado a papéis em `app_metadata`.
 
-## Riscos que continuam pendentes (exigem backend)
-1. O PIN administrativo continua validado no browser e pode ser contornado por alguém com acesso ao código/devtools.
-2. As políticas RLS das tabelas `guests` e as permissões da RPC `process_checkin` não foram auditadas nem alteradas nesta branch.
-3. A função RPC deve garantir atomicamente: token válido, contagem positiva, limite de lotação, idempotência de `p_checkin_uuid` e autorização de execução.
-4. O modo offline permite consulta à última lista em cache, mas não regista entradas. Uma fila offline confiável precisa de suporte idempotente e validação no servidor.
-5. A chave Supabase `anon` no frontend é pública por concepção. Nunca substituir por uma chave `service_role` no cliente.
+## Situação de acesso — bloqueio funcional conhecido
 
-## Dados e produção
-Nenhuma tabela, registo, migração, configuração de produção ou branch principal foi alterada. Não foram apagados dados.
-A data predefinida do evento foi preservada e deve ser confirmada antes de reutilizar o painel.
+As políticas RLS actuais exigem utilizadores autenticados com papel adequado:
+- `admin` para gestão do painel e leitura dos logs;
+- `gate` ou `admin` para leitura de convidados e execução da RPC de check-in.
 
-## Validação necessária antes do merge
-- Testar scanner real em Android/iOS e permissões de câmara.
-- Testar RPC com token válido, token inválido, lotação esgotada, duplicação de UUID e falha de rede.
-- Confirmar as políticas RLS e o código SQL de `process_checkin`.
-- Validar o PWA num deployment de Preview, incluindo instalação e carregamento offline.
+Como os três utilizadores ainda não têm papel, o login não permite utilizar as interfaces protegidas. Não remover o login do frontend nem reabrir permissões para `anon` como atalho: isso contrariaria as protecções aplicadas à base de dados e poderia expor dados pessoais dos convidados.
 
+A decisão actual é suspender a configuração das contas e continuar apenas com melhorias que não dependam de novas credenciais. As contas existentes não foram apagadas.
 
-## Auditoria read-only do Supabase (20/11/2026)
+## Verificações recentes
 
-Projeto identificado: `Evento Check-in` (`twrpzyopfcftxnthrqzl`). Foram feitas apenas consultas de leitura; nenhum registo foi consultado individualmente, alterado ou apagado.
+- RLS está activa nas tabelas `guests` e `checkin_logs`.
+- A função `process_checkin` está disponível para `authenticated` e é SECURITY DEFINER, com verificação do papel dentro da função.
+- O advisor de segurança ainda alerta para a função SECURITY DEFINER executável por utilizadores autenticados; esta execução é intencional para a RPC de check-in, mas deve continuar sob revisão.
+- O advisor também assinala a protecção contra palavras-passe comprometidas desactivada.
+- O advisor de desempenho assinala chamadas de auth repetidas nas políticas RLS e ausência de índice na chave estrangeira de `checkin_logs`. São optimizações futuras, não alterações urgentes.
+- Não foi realizado teste browser de login/check-in ponta a ponta.
 
-### Achados críticos — não corrigidos nesta branch
+## Regras de segurança e operação
 
-**CRÍTICO — RLS permite acesso público total**
-- `public.guests` tem RLS ligado, mas as políticas `Acesso Publico` e `Acesso Total Guests` usam `USING (true)` e `WITH CHECK (true)`, sem restringir a operação por utilizador/role.
-- `public.checkin_logs` tem a política `Acesso Total Logs` com `USING (true)` e `WITH CHECK (true)`.
-- Os arrays de roles das políticas estão vazios, o que representa o papel implícito PUBLIC.
-- A função `process_checkin` está executável por `anon`, `authenticated` e `PUBLIC`.
-- Como resultado, a camada de base de dados não está a isolar operações públicas de leitura/escrita. Isto pode permitir consultar dados dos convidados e manipular registos diretamente pela API, dependendo dos grants da tabela.
+1. Nunca colocar a chave `service_role` ou secret key no frontend, no repositório ou nesta conversa.
+2. Não alterar directamente `auth.users` por SQL para atribuir papéis. Usar apenas mecanismos administrativos oficiais do Supabase.
+3. Não conceder acesso público às tabelas nem à RPC para contornar o bloqueio de autenticação.
+4. Não executar novas migrações de produção, fazer merge ou publicar deploy sem revisão e autorização explícita.
+5. Preservar os convidados e o histórico existentes.
 
-**CRÍTICO — RPC de check-in não coincide com o schema**
-- A versão de `process_checkin` com cinco argumentos consulta `checkin_logs.checkin_uuid` e insere também em `is_offline_sync`.
-- A estrutura real de `public.checkin_logs` não contém nenhuma dessas duas colunas.
-- O frontend envia `p_checkin_uuid`, o que encaminha a chamada para essa sobrecarga; a execução deverá falhar ao tentar usar as colunas inexistentes.
-- Isto explica o fallback local que existia anteriormente: a entrada podia parecer registada no dispositivo sem ter sido gravada na base central.
+## Próximas melhorias de baixo risco
 
-**ALTO — validação insuficiente no backend**
-- As versões de `process_checkin` não validam explicitamente `p_count > 0`. A validação no browser não protege chamadas diretas à RPC.
-- As duas sobrecargas coexistem, aumentando a ambiguidade e o risco de divergência de regras.
-
-**ALTO — função administrativa SECURITY DEFINER**
-- O advisor de segurança sinaliza `public.rls_auto_enable()` como SECURITY DEFINER executável por anon/authenticated e com search_path definido.
-- A definição consultada mostra que é uma função de evento DDL (`RETURNS event_trigger`); não é uma RPC comum invocável pelo browser. Ainda assim, a exposição/grants devem ser revistos e limitados ao necessário.
-
-### Recomendação para uma fase seguinte
-Antes de reabrir a confirmação central de entradas:
-1. Desenhar e aplicar políticas RLS por operação e papel, com acesso administrativo autenticado e leitura mínima necessária à portaria.
-2. Corrigir o schema/log idempotente e consolidar `process_checkin` numa única assinatura.
-3. Validar `p_count` como inteiro positivo e garantir atomicidade, limites de lotação e idempotência com restrição UNIQUE.
-4. Testar SELECT/INSERT/UPDATE/DELETE com anon e authenticated, além de cenários de check-in concorrente.
-5. Fazer backup e preparar migração reversível; só executar depois de autorização explícita para alterar a base de produção.
-
-**Importante:** estes riscos já existiam na base consultada. Esta branch não os introduz. A correção frontend agora bloqueia o falso sucesso local, mas o check-in online continuará a falhar até a RPC/schema serem reconciliados.
-
-
-## Decisão de implementação — modelo híbrido mínimo
-
-Para o prazo curto do evento, a branch agora prepara:
-- Login Supabase Auth individual no painel, com exigência de `app_metadata.role = admin`.
-- Login operacional partilhado na portaria, com perfil `gate` (ou `admin`), sem permissões de escrita directa na tabela de convidados.
-- Migração SQL que fecha o acesso anon às tabelas, substitui políticas permissivas, corrige colunas em falta e consolida a RPC com validação de quantidade e idempotência.
-- Instruções para criar as contas e atribuir os papéis sem criar tabelas adicionais.
-
-**Estado:** código e migração preparados na branch; migração ainda NÃO executada na base de produção. A aplicação só funcionará com os novos logins depois de criar as contas, atribuir os papéis e executar a migração. Fazer backup antes. A branch continua isolada e a PR permanece draft.
-
-**Plano sem Preview:** validar sintaxe e estrutura estática; depois da autorização para a migração, executar testes funcionais mínimos directamente com uma conta de teste e um convite de teste, sem apagar nem modificar convidados reais. Não fazer deploy repetido enquanto o limite gratuito da Vercel estiver activo.
+- Rever acessibilidade, mensagens de erro e estados de carregamento.
+- Melhorar validações de formulários e experiência mobile.
+- Rever a lista de contingência e instruções operacionais.
+- Corrigir documentação e preparar testes estáticos sem tocar nos dados de produção.
+- Deixar a activação do fluxo de autenticação/check-in para uma fase própria, com teste controlado.
