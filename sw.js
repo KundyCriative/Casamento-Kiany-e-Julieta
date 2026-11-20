@@ -1,55 +1,44 @@
-const CACHE_NAME = 'portaria-kj-cache-v1';
-const ASSETS_TO_CACHE = [
-  '/portaria.html',
-  '/manifest.json',
-  '/icon.svg',
-  'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2',
-  'https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js'
-];
+/* Shell estático versionado. Não armazenar respostas de API ou dados pessoais em cache. */
+const CACHE_NAME = 'kj-wedding-shell-v2';
+const APP_SHELL = ['./', './index.html', './portaria.html', './manifest.json', './icon.svg'];
 
 self.addEventListener('install', (event) => {
-  event.waitUntil(
-    caches.open(CACHE_NAME).then((cache) => {
-      return cache.addAll(ASSETS_TO_CACHE).catch(() => {});
-    })
-  );
-  self.skipWaiting();
+  event.waitUntil((async () => {
+    const cache = await caches.open(CACHE_NAME);
+    await Promise.allSettled(APP_SHELL.map((asset) => cache.add(asset)));
+    await self.skipWaiting();
+  })());
 });
 
 self.addEventListener('activate', (event) => {
-  event.waitUntil(
-    caches.keys().then((keys) => {
-      return Promise.all(
-        keys.filter((key) => key !== CACHE_NAME).map((key) => caches.delete(key))
-      );
-    })
-  );
-  self.clients.claim();
+  event.waitUntil((async () => {
+    const keys = await caches.keys();
+    await Promise.all(keys.filter((key) => key !== CACHE_NAME).map((key) => caches.delete(key)));
+    await self.clients.claim();
+  })());
 });
 
 self.addEventListener('fetch', (event) => {
-  // Chamadas de API ao Supabase devem ir sempre à rede primeiro (para manter os dados em tempo real)
-  if (event.request.url.includes('supabase.co')) {
-    event.respondWith(
-      fetch(event.request).catch(() => caches.match(event.request))
-    );
-    return;
-  }
+  const request = event.request;
+  if (request.method !== 'GET') return;
+  const url = new URL(request.url);
+  if (url.origin !== self.location.origin) return;
+  if (url.pathname.includes('/rest/v1/') || url.pathname.includes('/auth/v1/')) return;
 
-  // Ficheiros estáticos usam cache com atualização em segundo plano (stale-while-revalidate)
-  event.respondWith(
-    caches.match(event.request).then((cachedResponse) => {
-      const fetchPromise = fetch(event.request).then((networkResponse) => {
-        if (networkResponse && networkResponse.status === 200) {
-          const responseToCache = networkResponse.clone();
-          caches.open(CACHE_NAME).then((cache) => {
-            cache.put(event.request, responseToCache);
-          });
-        }
-        return networkResponse;
-      }).catch(() => cachedResponse);
-
-      return cachedResponse || fetchPromise;
-    })
-  );
+  event.respondWith((async () => {
+    const cache = await caches.open(CACHE_NAME);
+    const cached = await cache.match(request);
+    try {
+      const response = await fetch(request);
+      if (response && response.ok && response.type === 'basic') await cache.put(request, response.clone());
+      return response;
+    } catch (error) {
+      if (cached) return cached;
+      if (request.mode === 'navigate') {
+        const fallback = await cache.match('./portaria.html');
+        if (fallback) return fallback;
+      }
+      return new Response('Conteúdo indisponível offline.', {status:503,headers:{'Content-Type':'text/plain; charset=utf-8'}});
+    }
+  })());
 });

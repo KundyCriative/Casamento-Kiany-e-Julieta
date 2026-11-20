@@ -1,0 +1,43 @@
+name: Static application validation
+
+on:
+  push:
+    branches:
+      - improvement/professional-hardening
+  pull_request:
+    branches:
+      - main
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Check service worker syntax
+        run: node --check sw.js
+      - name: Check inline JavaScript in application pages
+        run: |
+          node <<'NODE'
+          const fs = require('node:fs');
+          const vm = require('node:vm');
+          for (const file of ['index.html', 'portaria.html']) {
+            const html = fs.readFileSync(file, 'utf8');
+            const scripts = [...html.matchAll(/<script\b[^>]*>([\s\S]*?)<\/script>/gi)]
+              .map(match => match[1])
+              .filter(source => source.trim());
+            if (scripts.length === 0) throw new Error(file + ': no inline script found');
+            scripts.forEach((source, index) => new vm.Script(source, { filename: file + '#script-' + (index + 1) }));
+            console.log(file + ': ' + scripts.length + ' inline script(s) passed syntax validation');
+          }
+          const manifest = JSON.parse(fs.readFileSync('manifest.json', 'utf8'));
+          if (!manifest.name || !manifest.start_url) throw new Error('manifest.json is missing required PWA fields');
+          console.log('manifest.json: valid JSON and required fields present');
+          NODE

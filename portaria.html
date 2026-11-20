@@ -110,13 +110,37 @@ button { cursor: pointer; }
 </style>
 </head>
 <body>
+<style>
+body:not(.auth-ready) .app, body:not(.auth-ready) > header, body:not(.auth-ready) > main { visibility:hidden !important; }
+.auth-gate{position:fixed;inset:0;z-index:100000;background:#10251f;display:flex;align-items:center;justify-content:center;padding:20px;font-family:inherit}
+.auth-card{width:min(100%,390px);background:#fff;border-radius:16px;padding:26px;box-shadow:0 18px 60px #0005;color:#20342d}
+.auth-card h2{margin:0 0 8px;font-size:23px}.auth-card p{font-size:13px;color:#66766f;line-height:1.5}
+.auth-card label{display:block;font-size:12px;font-weight:700;margin:14px 0 6px}
+.auth-card input{width:100%;box-sizing:border-box;padding:13px;border:1px solid #d6dfda;border-radius:8px;font:inherit}
+.auth-card button{width:100%;padding:13px;margin-top:16px;border:0;border-radius:8px;background:#bd9a5b;color:#fff;font-weight:700;cursor:pointer}
+.auth-error{color:#b42318!important;min-height:18px}
+</style>
+<div id="authGate" class="auth-gate">
+  <form class="auth-card" onsubmit="event.preventDefault(); signInApp();">
+    <div style="font-size:11px;letter-spacing:2px;color:#bd9a5b;font-weight:800">KIANY &amp; JULIETA</div>
+    <h2>Acesso reservado</h2>
+    <p id="authDescription">Entre com a sua conta autorizada para validar convites na portaria.</p>
+    <label for="authEmail">Email</label><input id="authEmail" type="email" autocomplete="username" autocapitalize="none" spellcheck="false" required>
+    <label for="authPassword">Palavra-passe</label><input id="authPassword" type="password" autocomplete="current-password" required>
+    <p id="authError" class="auth-error" role="alert"></p>
+    <button id="authSubmit" type="submit">Entrar</button>
+  </form>
+</div>
 
 <header class="header">
   <div>
     <div style="font-size:10px; text-transform:uppercase; letter-spacing:1px; color:var(--gold);">Portaria Oficial</div>
     <div class="brand-title">Kiany &amp; Julieta</div>
   </div>
-  <span class="local-pill" id="syncPill">● A Conectar...</span>
+  <div style="display:flex; align-items:center; gap:8px; flex-wrap:wrap; justify-content:flex-end;">
+    <span class="local-pill" id="syncPill">● A Conectar...</span>
+    <button class="btn btn-secondary" style="font-size:11px; padding:6px 10px;" onclick="signOutApp()" aria-label="Terminar sessão">Sair</button>
+  </div>
 </header>
 
 <main class="container">
@@ -223,7 +247,7 @@ button { cursor: pointer; }
   let sb = null;
   try {
     if (window.supabase && SUPABASE_ANON_KEY.length > 20) {
-      sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+      sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY, { auth: { persistSession: true, autoRefreshToken: true, detectSessionInUrl: true } });
     }
   } catch(e) {}
 
@@ -233,6 +257,22 @@ button { cursor: pointer; }
   let isTorchOn = false;
   let audioCtx = null;
   let lastScanned = null;
+
+  function escapeHtml(value) {
+    return String(value ?? '').replace(/[&<>"']/g, (char) => ({ '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;', "'":'&#39;' })[char]);
+  }
+
+  function createCheckinId() {
+    if (window.crypto && typeof window.crypto.randomUUID === 'function') return window.crypto.randomUUID();
+    if (window.crypto && typeof window.crypto.getRandomValues === 'function') {
+      const bytes = new Uint8Array(16);
+      window.crypto.getRandomValues(bytes);
+      bytes[6] = (bytes[6] & 0x0f) | 0x40;
+      bytes[8] = (bytes[8] & 0x3f) | 0x80;
+      return Array.from(bytes, b => b.toString(16).padStart(2, '0')).join('');
+    }
+    throw new Error('Este dispositivo não consegue gerar um identificador seguro.');
+  }
 
   function playSound(type) {
     try {
@@ -271,7 +311,8 @@ button { cursor: pointer; }
         const { data, error } = await sb.from('guests').select('*').order('created_at', { ascending: false });
         if (!error && Array.isArray(data)) {
           guests = data;
-          localStorage.setItem('PORTARIA_CACHE_GUESTS', JSON.stringify(data));
+          try { localStorage.setItem('PORTARIA_CACHE_GUESTS', JSON.stringify(data)); }
+          catch (cacheError) { console.warn('Não foi possível actualizar a cache local da portaria:', cacheError); }
           pill.className = 'local-pill';
           pill.textContent = '● Base Conectada';
           return;
@@ -279,8 +320,10 @@ button { cursor: pointer; }
       } catch(e) {}
     }
 
-    const local = localStorage.getItem('PORTARIA_CACHE_GUESTS');
-    guests = local ? JSON.parse(local) : [];
+    let local = null;
+    try { local = localStorage.getItem('PORTARIA_CACHE_GUESTS'); guests = local ? JSON.parse(local) : []; }
+    catch (e) { guests = []; showToast('Cache local indisponível.'); }
+    if (!Array.isArray(guests)) guests = [];
     pill.className = 'local-pill offline';
     pill.textContent = '● Modo Offline';
   }
@@ -385,7 +428,7 @@ button { cursor: pointer; }
       box.className = 'scan-result error';
       box.innerHTML = `
         <h4 style="margin:0 0 6px; color:var(--red);">✕ Convite Não Encontrado</h4>
-        <p style="margin:0; font-size:13px;">O código <strong style="font-family:monospace;">${tokenQuery}</strong> não existe na lista oficial do casamento.</p>
+        <p style="margin:0; font-size:13px;">O código <strong style="font-family:monospace;">${escapeHtml(tokenQuery)}</strong> não existe na lista oficial do casamento.</p>
       `;
       return;
     }
@@ -397,9 +440,9 @@ button { cursor: pointer; }
       box.className = 'scan-result warning';
       box.innerHTML = `
         <h4 style="margin:0 0 4px; color:var(--amber);">⚠ Lotação Esgotada</h4>
-        <p style="margin:0; font-size:15px; font-weight:700;">${g.name}</p>
-        <p style="margin:4px 0 0; font-size:13px;">Mesa: <b>${g.table_name || 'Livre'}</b></p>
-        <p style="margin:6px 0 0; font-size:11px; color:var(--muted);">Todas as <b>${g.quota} pessoas</b> autorizadas já deram entrada.</p>
+        <p style="margin:0; font-size:15px; font-weight:700;">${escapeHtml(g.name)}</p>
+        <p style="margin:4px 0 0; font-size:13px;">Mesa: <b>${escapeHtml(g.table_name || 'Livre')}</b></p>
+        <p style="margin:6px 0 0; font-size:11px; color:var(--muted);">Todas as <b>${escapeHtml(g.quota)} pessoas</b> autorizadas já deram entrada.</p>
       `;
       return;
     }
@@ -409,15 +452,15 @@ button { cursor: pointer; }
 
     let actionBtns = '';
     for (let i = 1; i <= remaining; i++) {
-      actionBtns += `<button class="btn btn-primary" style="padding:8px 14px; font-size:13px;" onclick="confirmCheckin('${g.token}', ${i})">+${i} ${i === 1 ? 'Pessoa' : 'Pessoas'}</button>`;
+      actionBtns += `<button class="btn btn-primary" style="padding:8px 14px; font-size:13px;" onclick="confirmCheckin(decodeURIComponent('${encodeURIComponent(g.token)}'), ${i})">+${i} ${i === 1 ? 'Pessoa' : 'Pessoas'}</button>`;
     }
 
     box.innerHTML = `
       <div style="display:flex; justify-content:space-between; align-items:flex-start;">
         <div>
           <span class="status-badge status-ok">Convite Válido</span>
-          <h3 style="margin:6px 0 2px; font-size:20px; font-family:'Cormorant Garamond',serif;">${g.name}</h3>
-          <p style="margin:0; font-size:15px; color:var(--green); font-weight:700;">📍 Lugar: ${g.table_name || 'Livre'}</p>
+          <h3 style="margin:6px 0 2px; font-size:20px; font-family:'Cormorant Garamond',serif;">${escapeHtml(g.name)}</h3>
+          <p style="margin:0; font-size:15px; color:var(--green); font-weight:700;">📍 Lugar: ${escapeHtml(g.table_name || 'Livre')}</p>
         </div>
         <div style="text-align:right;">
           <span style="font-size:28px; font-weight:800; color:var(--green);">${remaining}</span>
@@ -438,51 +481,60 @@ button { cursor: pointer; }
 
     if (navigator.vibrate) navigator.vibrate([100, 50, 100]);
 
-    if (sb && navigator.onLine) {
-      try {
-        const { data: res, error } = await sb.rpc('process_checkin', {
-          p_token: token,
-          p_count: count,
-          p_checkin_uuid: crypto.randomUUID ? crypto.randomUUID() : Date.now().toString(),
-          p_gate: 'Portaria Principal'
-        });
-
-        if (!error && res && res.success) {
-          playSound('ok');
-          g.used = res.new_used;
-          box.className = 'scan-result success';
-          box.innerHTML = `
-            <div style="text-align:center; padding:12px;">
-              <span style="font-size:32px;">✅</span>
-              <h3 style="margin:4px 0; color:#28703c; font-size:18px;">ENTRADA CONFIRMADA!</h3>
-              <p style="margin:0; font-size:15px; font-weight:700;">${res.guest_name}</p>
-              <p style="margin:4px 0 0; color:var(--green);">Entraram <b>${count}</b> pessoa(s) · Mesa: <b>${res.table_name}</b></p>
-              <p style="margin:6px 0 0; font-size:11px; color:var(--muted);">Total presente: ${res.new_used} de ${res.quota} pessoas</p>
-            </div>
-          `;
-          showToast(`✓ Confirmado: +${count} para ${res.guest_name}`);
-          return;
-        } else if (res && res.reason === 'exhausted') {
-          playSound('err');
-          alert("LOTAÇÃO ESGOTADA:\nEste convite já atingiu o limite de pessoas noutra porta.");
-          return;
-        }
-      } catch(e) {}
+    if (!Number.isInteger(Number(count)) || Number(count) < 1 || Number(count) > Number(g.quota) - Number(g.used)) {
+      box.className = 'scan-result warning';
+      box.textContent = 'Quantidade inválida ou superior às vagas disponíveis.';
+      return;
+    }
+    if (!sb || !navigator.onLine) {
+      playSound('err');
+      box.className = 'scan-result warning';
+      box.textContent = 'Sem ligação à base central. A entrada não será registada offline para evitar duplicações.';
+      showToast('Check-in bloqueado: sem ligação central.', true);
+      lastScanned = null;
+      return;
     }
 
-    g.used += count;
-    localStorage.setItem('PORTARIA_CACHE_GUESTS', JSON.stringify(guests));
-    playSound('ok');
-    box.className = 'scan-result success';
-    box.innerHTML = `
-      <div style="text-align:center; padding:12px;">
-        <span style="font-size:32px;">✅</span>
-        <h3 style="margin:4px 0; color:#28703c; font-size:18px;">ENTRADA REGISTADA (LOCAL)</h3>
-        <p style="margin:0; font-size:15px; font-weight:700;">${g.name}</p>
-        <p style="margin:4px 0 0;">Entraram <b>${count}</b> pessoa(s) · Mesa: <b>${g.table_name || 'Livre'}</b></p>
-      </div>
-    `;
-    showToast(`✓ Registado localmente (+${count})`);
+    try {
+      const { data: res, error } = await sb.rpc('process_checkin', {
+        p_token: token,
+        p_count: Number(count),
+        p_checkin_uuid: createCheckinId(),
+        p_gate: 'Portaria Principal'
+      });
+      if (error || !res || !res.success) {
+        if (res && res.reason === 'exhausted') {
+          playSound('err');
+          box.className = 'scan-result warning';
+          box.textContent = 'Lotação esgotada: este convite já atingiu o limite noutra porta.';
+          showToast('Lotação esgotada.', true);
+          return;
+        }
+        throw error || new Error((res && res.message) || 'O servidor não confirmou a entrada.');
+      }
+
+      playSound('ok');
+      g.used = Number(res.new_used);
+      box.className = 'scan-result success';
+      box.innerHTML = `
+        <div style="text-align:center; padding:12px;">
+          <span style="font-size:32px;">✅</span>
+          <h3 style="margin:4px 0; color:#28703c; font-size:18px;">ENTRADA CONFIRMADA!</h3>
+          <p style="margin:0; font-size:15px; font-weight:700;">${escapeHtml(res.guest_name)}</p>
+          <p style="margin:4px 0 0; color:var(--green);">Entraram <b>${escapeHtml(count)}</b> pessoa(s) · Mesa: <b>${escapeHtml(res.table_name || 'Livre')}</b></p>
+          <p style="margin:6px 0 0; font-size:11px; color:var(--muted);">Total presente: ${escapeHtml(res.new_used)} de ${escapeHtml(res.quota)} pessoas</p>
+        </div>
+      `;
+      showToast('Entrada confirmada no servidor.');
+      lastScanned = null;
+    } catch (e) {
+      console.error('Falha no check-in central:', e);
+      playSound('err');
+      box.className = 'scan-result warning';
+      box.textContent = 'Falha ao confirmar no servidor. Nenhuma entrada foi registada localmente. Verifique a ligação e tente novamente.';
+      showToast('Check-in não confirmado.', true);
+      lastScanned = null;
+    }
   };
 
   window.searchGuests = function(q) {
@@ -507,16 +559,75 @@ button { cursor: pointer; }
       
       div.innerHTML = `
         <div>
-          <strong style="font-size:14px;">${g.name}</strong>
-          <small style="display:block; color:var(--muted);">${g.table_name || 'Livre'} · ${isFull ? 'Esgotado' : remaining + ' vaga(s)'}</small>
+          <strong style="font-size:14px;">${escapeHtml(g.name)}</strong>
+          <small style="display:block; color:var(--muted);">${escapeHtml(g.table_name || 'Livre')} · ${isFull ? 'Esgotado' : remaining + ' vaga(s)'}</small>
         </div>
-        <button class="btn btn-secondary" style="font-size:11px; padding:6px 10px;" onclick="inspectGuest('${g.token}')">Validar</button>
+        <button class="btn btn-secondary" style="font-size:11px; padding:6px 10px;" onclick="inspectGuest(decodeURIComponent('${encodeURIComponent(g.token)}'))">Validar</button>
       `;
       target.appendChild(div);
     });
   };
 
-  window.addEventListener('DOMContentLoaded', loadGuests);
+  async function signInApp() {
+    const email=document.getElementById('authEmail').value.trim().toLowerCase();
+    const password=document.getElementById('authPassword').value;
+    const errorBox=document.getElementById('authError');
+    const button=document.getElementById('authSubmit');
+    errorBox.textContent=''; button.disabled=true; button.textContent='A autenticar...';
+    try {
+      if(!sb) throw new Error('Serviço de autenticação indisponível.');
+      if(!email) throw new Error('Introduza o email e a palavra-passe.');
+      const {data,error}=await sb.auth.signInWithPassword({email,password});
+      if(error) throw error;
+      const role=data.user?.app_metadata?.role;
+      if(role!=='gate' && role!=='admin') { await sb.auth.signOut(); throw new Error('Esta conta não tem acesso à portaria.'); }
+      document.body.classList.add('auth-ready');
+      document.getElementById('authGate').style.display='none';
+      await loadGuests();
+    } catch(e) { errorBox.textContent=e.message||'Não foi possível entrar.'; }
+    finally { button.disabled=false; button.textContent='Entrar'; }
+  }
+  window.signInApp=signInApp;
+
+  async function bootGateAuth() {
+    if(!sb) { document.getElementById('authError').textContent='Não foi possível ligar ao serviço de autenticação.'; return; }
+    try {
+      const {data:{session}}=await sb.auth.getSession();
+      const role=session?.user?.app_metadata?.role;
+      if(session && (role==='gate' || role==='admin')) {
+        document.body.classList.add('auth-ready');
+        document.getElementById('authGate').style.display='none';
+        await loadGuests();
+      } else if(session) {
+        await sb.auth.signOut();
+        document.getElementById('authError').textContent='Esta conta não tem acesso à portaria.';
+      }
+    } catch(e) { document.getElementById('authError').textContent='Falha ao validar sessão. Tente novamente.'; }
+  }
+
+  window.signOutApp = async function() {
+    if (!confirm("Terminar a sessão neste dispositivo? A cache local de convidados será apagada.")) return;
+    if (html5Scanner && camActive) {
+      try { await html5Scanner.stop(); html5Scanner.clear(); } catch (e) { console.warn("Falha ao parar a câmara:", e); }
+    }
+    html5Scanner = null; camActive = false; lastScanned = null;
+    try { if (sb) await sb.auth.signOut(); } catch (e) { console.warn("Falha ao terminar sessão remota:", e); }
+    localStorage.removeItem("PORTARIA_CACHE_GUESTS");
+    guests = [];
+    document.body.classList.remove("auth-ready");
+    document.getElementById("authGate").style.display = "flex";
+    document.getElementById("authPassword").value = "";
+    document.getElementById("authError").textContent = "Sessão terminada.";
+    document.getElementById("syncPill").textContent = "● Sessão terminada";
+    document.getElementById("btnToggleCam").textContent = "▶ Ligar Câmara";
+    document.getElementById("camStatusBadge").textContent = "Desligada";
+    document.getElementById("camPlaceholder").style.display = "block";
+    document.getElementById("scanResultBox").style.display = "none";
+    document.getElementById("scanResultBox").textContent = "";
+    document.getElementById("manualResults").textContent = "";
+  };
+
+  window.addEventListener('DOMContentLoaded', bootGateAuth);
 })();
 </script>
 </body>

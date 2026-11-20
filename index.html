@@ -130,6 +130,25 @@ tbody tr:hover { background: #fcfcf7; }
   .mobile-bottom button.active { color: var(--green); }
 }
 
+@media (max-width: 640px) {
+  .topbar { height: auto; min-height: 68px; padding: 12px 14px; align-items: flex-start; }
+  .topbar > div:last-child { justify-content: flex-end; }
+  .topbar > div:last-child > a { display: none; }
+  .topbar h1 { font-size: 19px; }
+  .page-intro { align-items: flex-start; flex-direction: column; }
+  .page-intro h2 { font-size: 31px; }
+  .stats { gap: 9px; }
+  .stat { padding: 14px; }
+  .stat-number { font-size: 34px; }
+  .panel-head, .panel-body { padding: 14px; }
+  .panel-head > div { width: 100%; }
+  #searchGuest { min-width: 0; flex: 1; }
+  .content { padding: 18px 12px 92px; }
+}
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { scroll-behavior: auto !important; animation-duration: .01ms !important; animation-iteration-count: 1 !important; transition-duration: .01ms !important; }
+}
+
 @media print {
   body { background: white; }
   .app, .mobile-bottom, .modal-backdrop, .notice, #pdfWrapper { display: none !important; }
@@ -142,6 +161,27 @@ tbody tr:hover { background: #fcfcf7; }
 </style>
 </head>
 <body>
+<style>
+body:not(.auth-ready) .app, body:not(.auth-ready) > header, body:not(.auth-ready) > main { visibility:hidden !important; }
+.auth-gate{position:fixed;inset:0;z-index:100000;background:#10251f;display:flex;align-items:center;justify-content:center;padding:20px;font-family:inherit}
+.auth-card{width:min(100%,390px);background:#fff;border-radius:16px;padding:26px;box-shadow:0 18px 60px #0005;color:#20342d}
+.auth-card h2{margin:0 0 8px;font-size:23px}.auth-card p{font-size:13px;color:#66766f;line-height:1.5}
+.auth-card label{display:block;font-size:12px;font-weight:700;margin:14px 0 6px}
+.auth-card input{width:100%;box-sizing:border-box;padding:13px;border:1px solid #d6dfda;border-radius:8px;font:inherit}
+.auth-card button{width:100%;padding:13px;margin-top:16px;border:0;border-radius:8px;background:#bd9a5b;color:#fff;font-weight:700;cursor:pointer}
+.auth-error{color:#b42318!important;min-height:18px}
+</style>
+<div id="authGate" class="auth-gate">
+  <form class="auth-card" onsubmit="event.preventDefault(); signInApp();">
+    <div style="font-size:11px;letter-spacing:2px;color:#bd9a5b;font-weight:800">KIANY &amp; JULIETA</div>
+    <h2>Acesso reservado</h2>
+    <p id="authDescription">Entre com a sua conta autorizada para aceder ao painel.</p>
+    <label for="authEmail">Email</label><input id="authEmail" type="email" autocomplete="username" autocapitalize="none" spellcheck="false" required>
+    <label for="authPassword">Palavra-passe</label><input id="authPassword" type="password" autocomplete="current-password" required>
+    <p id="authError" class="auth-error" role="alert"></p>
+    <button id="authSubmit" type="submit">Entrar</button>
+  </form>
+</div>
 
 <div class="app">
   <!-- BARRA LATERAL -->
@@ -186,6 +226,7 @@ tbody tr:hover { background: #fcfcf7; }
         <span class="local-pill" id="syncPill">● A Conectar...</span>
         <a href="portaria.html" target="_blank" class="btn btn-gold" style="font-weight:700;">📷 Abrir Portaria (Scanner) ↗</a>
         <button class="btn btn-primary" onclick="requireAdmin(showGuestModal)">＋ Novo Convidado</button>
+        <button class="btn btn-secondary btn-small" onclick="signOutApp()" aria-label="Terminar sessão">Sair</button>
       </div>
     </header>
 
@@ -283,9 +324,10 @@ tbody tr:hover { background: #fcfcf7; }
           <div class="panel-head"><h3>Dados Oficiais da Celebração</h3></div>
           <div class="panel-body">
             <div class="field"><label for="cfgTitle">Nomes dos Noivos</label><input id="cfgTitle" value="Kiany &amp; Julieta"></div>
-            <div class="field"><label for="cfgDate">Data</label><input id="cfgDate" value="Sábado, 14 de Novembro de 2026"></div>
+            <div class="field"><label for="cfgDate">Data</label><input id="cfgDate" value="Sexta-feira, 27 de Novembro de 2026"></div>
             <div class="field"><label for="cfgTime">Hora</label><input id="cfgTime" value="16h00"></div>
             <div class="field"><label for="cfgVenue">Local do Salão</label><input id="cfgVenue" value="Espaço Luanda, Talatona"></div>
+            <p role="note" style="font-size:11px; color:#8a5b16; background:#fff7eb; border:1px solid #eedcc0; border-radius:7px; padding:10px 12px;">Nota de segurança: este PIN é apenas uma barreira visual no navegador. Não substitui autenticação real nem políticas RLS no Supabase.</p>
             <div class="field"><label for="cfgPin">PIN de Segurança do Administrador</label><input id="cfgPin" type="password" maxlength="8" value="2026" placeholder="Defina um PIN de 4 a 8 dígitos"></div>
             <button class="btn btn-primary" onclick="saveEventConfig()">Guardar Alterações</button>
           </div>
@@ -384,7 +426,7 @@ tbody tr:hover { background: #fcfcf7; }
           <div id="pdfQrBox" style="background:#fff; padding:8px; border:1px solid #dfd1b6; border-radius:8px; min-width:130px; min-height:130px; display:flex; align-items:center; justify-content:center;"></div>
         </div>
         <div style="font-family:monospace; font-size:10px; color:#788680;" id="pdfToken">CÓDIGO: KJ-000000</div>
-        <div style="margin-top:12px; font-family:sans-serif; font-size:11px; font-weight:bold; color:#183b35;" id="pdfDateTime">Sábado, 14 de Novembro de 2026 · 16h00</div>
+        <div style="margin-top:12px; font-family:sans-serif; font-size:11px; font-weight:bold; color:#183b35;" id="pdfDateTime">Sexta-feira, 27 de Novembro de 2026 · 16h00</div>
         <div style="font-family:sans-serif; font-size:10px; color:#697873;" id="pdfVenue">Espaço Luanda, Talatona</div>
       </div>
     </div>
@@ -411,7 +453,7 @@ tbody tr:hover { background: #fcfcf7; }
   try {
     if (window.supabase && SUPABASE_ANON_KEY.length > 20) {
       sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
-        auth: { persistSession: false }
+        auth: { persistSession: true, autoRefreshToken: true, detectSessionInUrl: true }
       });
     }
   } catch(e) {
@@ -459,6 +501,58 @@ tbody tr:hover { background: #fcfcf7; }
     el._t = setTimeout(() => el.classList.remove('show'), 3800);
   };
 
+  async function signInApp() {
+    const email=document.getElementById('authEmail').value.trim().toLowerCase();
+    const password=document.getElementById('authPassword').value;
+    const errorBox=document.getElementById('authError');
+    const button=document.getElementById('authSubmit');
+    errorBox.textContent='';
+    button.disabled=true; button.textContent='A autenticar...';
+    try {
+      if(!sb) throw new Error('Serviço de autenticação indisponível. Verifique a ligação.');
+      if(!email) throw new Error('Introduza o email e a palavra-passe.');
+      const {data,error}=await sb.auth.signInWithPassword({email,password});
+      if(error) throw error;
+      const role=data.user?.app_metadata?.role;
+      if(role!=='admin') { await sb.auth.signOut(); throw new Error('Esta conta não tem perfil de administrador.'); }
+      document.body.classList.add('auth-ready');
+      document.getElementById('authGate').style.display='none';
+      await loadData();
+    } catch(e) { errorBox.textContent=e.message||'Não foi possível entrar.'; }
+    finally { button.disabled=false; button.textContent='Entrar'; }
+  }
+  window.signInApp=signInApp;
+
+  async function bootAdminAuth() {
+    if(!sb) { document.getElementById('authError').textContent='Não foi possível ligar ao serviço de autenticação.'; return; }
+    try {
+      const {data:{session}}=await sb.auth.getSession();
+      const role=session?.user?.app_metadata?.role;
+      if(session && role==='admin') {
+        document.body.classList.add('auth-ready');
+        document.getElementById('authGate').style.display='none';
+        await loadData();
+      } else if(session) {
+        await sb.auth.signOut();
+        document.getElementById('authError').textContent='Esta conta não tem acesso ao painel.';
+      }
+    } catch(e) { document.getElementById('authError').textContent='Falha ao validar sessão. Tente novamente.'; }
+  }
+
+  window.signOutApp = async function() {
+    if (!confirm("Terminar a sessão neste dispositivo? A cache local de convidados será apagada.")) return;
+    try { if (sb) await sb.auth.signOut(); } catch (e) { console.warn("Falha ao terminar sessão remota:", e); }
+    localStorage.removeItem(GUESTS_CACHE_KEY);
+    sessionStorage.removeItem("KJ_ADMIN_AUTHORIZED");
+    guests = [];
+    renderAll();
+    document.body.classList.remove("auth-ready");
+    document.getElementById("authGate").style.display = "flex";
+    document.getElementById("authPassword").value = "";
+    document.getElementById("authError").textContent = "Sessão terminada.";
+    document.getElementById("syncPill").textContent = "● Sessão terminada";
+  };
+
   // --- CONTROLO DE ACESSO / PIN DO ADMINISTRADOR ---
   window.requireAdmin = function(actionCallback) {
     const storedPin = loadStoredConfig().pin || '2026';
@@ -494,10 +588,10 @@ tbody tr:hover { background: #fcfcf7; }
   function loadStoredConfig() {
     try {
       const raw = localStorage.getItem(CONFIG_KEY);
-      if (!raw) return { title: 'Kiany & Julieta', date: 'Sábado, 14 de Novembro de 2026', time: '16h00', venue: 'Espaço Luanda, Talatona', pin: '2026' };
+      if (!raw) return { title: 'Kiany & Julieta', date: 'Sexta-feira, 27 de Novembro de 2026', time: '16h00', venue: 'Espaço Luanda, Talatona', pin: '2026' };
       return JSON.parse(raw);
     } catch (e) {
-      return { title: 'Kiany & Julieta', date: 'Sábado, 14 de Novembro de 2026', time: '16h00', venue: 'Espaço Luanda, Talatona', pin: '2026' };
+      return { title: 'Kiany & Julieta', date: 'Sexta-feira, 27 de Novembro de 2026', time: '16h00', venue: 'Espaço Luanda, Talatona', pin: '2026' };
     }
   }
 
@@ -723,6 +817,7 @@ tbody tr:hover { background: #fcfcf7; }
 
     if (!name) return alert("Por favor, preencha o nome do convidado.");
     if (isNaN(quota) || quota < 1) return alert("A lotação deve ser de pelo menos 1 pessoa.");
+    if (!sb || !navigator.onLine) return alert("Sem ligação à base central. A alteração não foi guardada. Restabeleça a ligação e tente novamente.");
 
     btn.disabled = true;
     btn.textContent = 'A guardar...';
@@ -778,6 +873,7 @@ tbody tr:hover { background: #fcfcf7; }
     const g = guests.find(x => x.id === id);
     if (!g) return;
     if (!confirm(`Tem a certeza absoluta de que deseja eliminar o convite de "${g.name}"?\nEsta ação anula a validade do código.`)) return;
+    if (!sb || !navigator.onLine) return alert("Sem ligação à base central. O convite não foi eliminado.");
 
     try {
       if (sb && navigator.onLine) {
@@ -897,8 +993,13 @@ tbody tr:hover { background: #fcfcf7; }
   };
 
   window.exportCsvList = function() {
-    const header = "Nome;Telefone;Vagas;Entraram;Mesa;Codigo\n";
-    const body = guests.map(g => `"${g.name}";"${g.phone || ''}";${g.quota};${g.used};"${g.table_name || ''}";"${g.token}"`).join("\n");
+    const csvCell = (value) => {
+      let text = String(value ?? '');
+      if (/^[\s]*[=+\-@]/.test(text)) text = "'" + text;
+      return '"' + text.replace(/"/g, '""') + '"';
+    };
+    const header = ["Nome", "Telefone", "Vagas", "Entraram", "Mesa", "Codigo"].map(csvCell).join(";");
+    const body = guests.map(g => [g.name, g.phone, g.quota, g.used, g.table_name, g.token].map(csvCell).join(";")).join("\n");
     const blob = new Blob(["\ufeff" + header + body], { type: "text/csv;charset=utf-8;" });
     const a = document.createElement('a');
     a.href = URL.createObjectURL(blob);
@@ -930,7 +1031,7 @@ tbody tr:hover { background: #fcfcf7; }
 
   document.addEventListener('DOMContentLoaded', () => {
     applyConfigToInterface(loadStoredConfig());
-    loadData();
+    bootAdminAuth();
   });
 
 })();
