@@ -238,6 +238,18 @@ button { cursor: pointer; }
     return String(value ?? '').replace(/[&<>"']/g, (char) => ({ '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;', "'":'&#39;' })[char]);
   }
 
+  function createCheckinId() {
+    if (window.crypto && typeof window.crypto.randomUUID === 'function') return window.crypto.randomUUID();
+    if (window.crypto && typeof window.crypto.getRandomValues === 'function') {
+      const bytes = new Uint8Array(16);
+      window.crypto.getRandomValues(bytes);
+      bytes[6] = (bytes[6] & 0x0f) | 0x40;
+      bytes[8] = (bytes[8] & 0x3f) | 0x80;
+      return Array.from(bytes, b => b.toString(16).padStart(2, '0')).join('');
+    }
+    throw new Error('Este dispositivo não consegue gerar um identificador seguro.');
+  }
+
   function playSound(type) {
     try {
       if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
@@ -444,51 +456,60 @@ button { cursor: pointer; }
 
     if (navigator.vibrate) navigator.vibrate([100, 50, 100]);
 
-    if (sb && navigator.onLine) {
-      try {
-        const { data: res, error } = await sb.rpc('process_checkin', {
-          p_token: token,
-          p_count: count,
-          p_checkin_uuid: crypto.randomUUID ? crypto.randomUUID() : Date.now().toString(),
-          p_gate: 'Portaria Principal'
-        });
-
-        if (!error && res && res.success) {
-          playSound('ok');
-          g.used = res.new_used;
-          box.className = 'scan-result success';
-          box.innerHTML = `
-            <div style="text-align:center; padding:12px;">
-              <span style="font-size:32px;">✅</span>
-              <h3 style="margin:4px 0; color:#28703c; font-size:18px;">ENTRADA CONFIRMADA!</h3>
-              <p style="margin:0; font-size:15px; font-weight:700;">${res.guest_name}</p>
-              <p style="margin:4px 0 0; color:var(--green);">Entraram <b>${count}</b> pessoa(s) · Mesa: <b>${res.table_name}</b></p>
-              <p style="margin:6px 0 0; font-size:11px; color:var(--muted);">Total presente: ${res.new_used} de ${res.quota} pessoas</p>
-            </div>
-          `;
-          showToast(`✓ Confirmado: +${count} para ${res.guest_name}`);
-          return;
-        } else if (res && res.reason === 'exhausted') {
-          playSound('err');
-          alert("LOTAÇÃO ESGOTADA:\nEste convite já atingiu o limite de pessoas noutra porta.");
-          return;
-        }
-      } catch(e) {}
+    if (!Number.isInteger(Number(count)) || Number(count) < 1 || Number(count) > Number(g.quota) - Number(g.used)) {
+      box.className = 'scan-result warning';
+      box.textContent = 'Quantidade inválida ou superior às vagas disponíveis.';
+      return;
+    }
+    if (!sb || !navigator.onLine) {
+      playSound('err');
+      box.className = 'scan-result warning';
+      box.textContent = 'Sem ligação à base central. A entrada não será registada offline para evitar duplicações.';
+      showToast('Check-in bloqueado: sem ligação central.', true);
+      lastScanned = null;
+      return;
     }
 
-    g.used += count;
-    localStorage.setItem('PORTARIA_CACHE_GUESTS', JSON.stringify(guests));
-    playSound('ok');
-    box.className = 'scan-result success';
-    box.innerHTML = `
-      <div style="text-align:center; padding:12px;">
-        <span style="font-size:32px;">✅</span>
-        <h3 style="margin:4px 0; color:#28703c; font-size:18px;">ENTRADA REGISTADA (LOCAL)</h3>
-        <p style="margin:0; font-size:15px; font-weight:700;">${g.name}</p>
-        <p style="margin:4px 0 0;">Entraram <b>${count}</b> pessoa(s) · Mesa: <b>${g.table_name || 'Livre'}</b></p>
-      </div>
-    `;
-    showToast(`✓ Registado localmente (+${count})`);
+    try {
+      const { data: res, error } = await sb.rpc('process_checkin', {
+        p_token: token,
+        p_count: Number(count),
+        p_checkin_uuid: createCheckinId(),
+        p_gate: 'Portaria Principal'
+      });
+      if (error || !res || !res.success) {
+        if (res && res.reason === 'exhausted') {
+          playSound('err');
+          box.className = 'scan-result warning';
+          box.textContent = 'Lotação esgotada: este convite já atingiu o limite noutra porta.';
+          showToast('Lotação esgotada.', true);
+          return;
+        }
+        throw error || new Error((res && res.message) || 'O servidor não confirmou a entrada.');
+      }
+
+      playSound('ok');
+      g.used = Number(res.new_used);
+      box.className = 'scan-result success';
+      box.innerHTML = `
+        <div style="text-align:center; padding:12px;">
+          <span style="font-size:32px;">✅</span>
+          <h3 style="margin:4px 0; color:#28703c; font-size:18px;">ENTRADA CONFIRMADA!</h3>
+          <p style="margin:0; font-size:15px; font-weight:700;">${escapeHtml(res.guest_name)}</p>
+          <p style="margin:4px 0 0; color:var(--green);">Entraram <b>${escapeHtml(count)}</b> pessoa(s) · Mesa: <b>${escapeHtml(res.table_name || 'Livre')}</b></p>
+          <p style="margin:6px 0 0; font-size:11px; color:var(--muted);">Total presente: ${escapeHtml(res.new_used)} de ${escapeHtml(res.quota)} pessoas</p>
+        </div>
+      `;
+      showToast('Entrada confirmada no servidor.');
+      lastScanned = null;
+    } catch (e) {
+      console.error('Falha no check-in central:', e);
+      playSound('err');
+      box.className = 'scan-result warning';
+      box.textContent = 'Falha ao confirmar no servidor. Nenhuma entrada foi registada localmente. Verifique a ligação e tente novamente.';
+      showToast('Check-in não confirmado.', true);
+      lastScanned = null;
+    }
   };
 
   window.searchGuests = function(q) {
