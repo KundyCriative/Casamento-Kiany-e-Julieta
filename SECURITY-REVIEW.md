@@ -64,3 +64,16 @@ Antes de reabrir a confirmação central de entradas:
 5. Fazer backup e preparar migração reversível; só executar depois de autorização explícita para alterar a base de produção.
 
 **Importante:** estes riscos já existiam na base consultada. Esta branch não os introduz. A correção frontend agora bloqueia o falso sucesso local, mas o check-in online continuará a falhar até a RPC/schema serem reconciliados.
+
+
+## Decisão de implementação — modelo híbrido mínimo
+
+Para o prazo curto do evento, a branch agora prepara:
+- Login Supabase Auth individual no painel, com exigência de `app_metadata.role = admin`.
+- Login operacional partilhado na portaria, com perfil `gate` (ou `admin`), sem permissões de escrita directa na tabela de convidados.
+- Migração SQL que fecha o acesso anon às tabelas, substitui políticas permissivas, corrige colunas em falta e consolida a RPC com validação de quantidade e idempotência.
+- Instruções para criar as contas e atribuir os papéis sem criar tabelas adicionais.
+
+**Estado:** código e migração preparados na branch; migração ainda NÃO executada na base de produção. A aplicação só funcionará com os novos logins depois de criar as contas, atribuir os papéis e executar a migração. Fazer backup antes. A branch continua isolada e a PR permanece draft.
+
+**Plano sem Preview:** validar sintaxe e estrutura estática; depois da autorização para a migração, executar testes funcionais mínimos directamente com uma conta de teste e um convite de teste, sem apagar nem modificar convidados reais. Não fazer deploy repetido enquanto o limite gratuito da Vercel estiver activo.
