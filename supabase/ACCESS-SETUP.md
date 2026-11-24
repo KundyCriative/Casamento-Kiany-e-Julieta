@@ -27,7 +27,7 @@ Não:
 - colocar uma chave `service_role` no browser ou no repositório;
 - publicar funções administrativas temporárias sem validação e limpeza.
 
-A função temporária de bootstrap foi removida. O segredo temporário também foi removido, conforme confirmação do responsável.
+A recuperação excepcional do perfil proprietário foi concluída e a Edge Function temporária `restore-owner-admin-once` foi removida após a validação. O painel mantém a autenticação normal por email e palavra-passe e só concede acesso quando `app_metadata.role` é `admin`. Não existe dependência de funções temporárias para iniciar sessão.
 
 ## Migrações aplicadas
 
