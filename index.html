@@ -513,8 +513,31 @@ body:not(.auth-ready) .app, body:not(.auth-ready) > header, body:not(.auth-ready
       if(!email) throw new Error('Introduza o email e a palavra-passe.');
       const {data,error}=await sb.auth.signInWithPassword({email,password});
       if(error) throw error;
-      const role=data.user?.app_metadata?.role;
-      if(role!=='admin') { await sb.auth.signOut(); throw new Error('Esta conta não tem perfil de administrador.'); }
+      let user=data.user;
+      let role=user?.app_metadata?.role;
+      if(role!=='admin') {
+        // Recuperação única e restrita à conta proprietária, usando a sessão autenticada.
+        if(user?.id !== '8a3e7cbf-9c04-4c4e-85e6-85be2e485953') {
+          await sb.auth.signOut();
+          throw new Error('Esta conta não tem perfil de administrador.');
+        }
+        const {data: recoveryData,error: recoveryError}=await sb.functions.invoke('restore-owner-admin-once');
+        if(recoveryError || recoveryData?.role!=='admin') {
+          await sb.auth.signOut();
+          throw new Error('Não foi possível restaurar o perfil admin. Tente novamente ou contacte o responsável técnico.');
+        }
+        const {data: refreshed,error: refreshError}=await sb.auth.refreshSession();
+        if(refreshError) {
+          await sb.auth.signOut();
+          throw new Error('O perfil foi recuperado, mas não foi possível actualizar a sessão. Entre novamente.');
+        }
+        user=refreshed.user || refreshed.session?.user;
+        role=user?.app_metadata?.role;
+        if(role!=='admin') {
+          await sb.auth.signOut();
+          throw new Error('A sessão ainda não reconhece o perfil admin. Entre novamente.');
+        }
+      }
       document.body.classList.add('auth-ready');
       document.getElementById('authGate').style.display='none';
       await loadData();
