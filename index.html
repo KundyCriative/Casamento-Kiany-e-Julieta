@@ -807,7 +807,13 @@ body:not(.auth-ready) .app, body:not(.auth-ready) > header, body:not(.auth-ready
 
   window.closeModal = function(id) {
     const el = document.getElementById(id);
-    if (el) el.classList.remove('show');
+    if (!el) return;
+    el.classList.remove('show');
+    // O visualizador do convite usa display inline, não a classe .show.
+    if (id === 'pdfWrapper') {
+      el.style.display = 'none';
+      el.setAttribute('aria-hidden', 'true');
+    }
   };
 
   window.submitGuestForm = async function() {
@@ -920,6 +926,7 @@ body:not(.auth-ready) .app, body:not(.auth-ready) > header, body:not(.auth-ready
 
     const wrapper = document.getElementById('pdfWrapper');
     wrapper.style.display = 'flex';
+    wrapper.setAttribute('aria-hidden', 'false');
 
     document.getElementById('btnExportPdf').onclick = () => executePdfExport(g.name);
     document.getElementById('btnExportPng').onclick = () => executePngExport(g.name);
