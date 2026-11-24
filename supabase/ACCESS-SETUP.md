@@ -27,7 +27,7 @@ Não:
 - colocar uma chave `service_role` no browser ou no repositório;
 - publicar funções administrativas temporárias sem validação e limpeza.
 
-Existe temporariamente a Edge Function `restore-owner-admin-once`, com `verify_jwt=true`, limitada ao ID e email da conta proprietária. O painel chama-a apenas após autenticação válida dessa conta e actualiza a sessão antes de conceder acesso. A função deve ser removida após a recuperação e validação do perfil `admin`.
+A recuperação excepcional do perfil proprietário foi concluída e a Edge Function temporária `restore-owner-admin-once` foi removida após a validação. O painel mantém a autenticação normal por email e palavra-passe e só concede acesso quando `app_metadata.role` é `admin`. Não existe dependência de funções temporárias para iniciar sessão.
 
 ## Migrações aplicadas
 
